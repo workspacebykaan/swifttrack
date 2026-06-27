@@ -10,6 +10,7 @@ interface Project {
   expenses: number;
   status: string;
   deadline: string;
+  name?: string; // name sütunu da olabilir
 }
 
 export default function Home() {
@@ -42,7 +43,7 @@ export default function Home() {
     fetchProjects();
   }, []);
 
-  // Yeni Proje Kaydetme
+  // Yeni Proje Kaydetme (name sütununu da dolduruyoruz!)
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !client || !budget) return alert('Lütfen zorunlu alanları doldurun!');
@@ -51,7 +52,8 @@ export default function Home() {
 
     const { error } = await supabase.from('projects').insert([
       {
-        title,
+        title,            // Yeni title sütunu
+        name: title,      // Eski ve zorunlu name sütunu (Burayı güncelledik!)
         client,
         budget: Number(budget),
         expenses: Number(expenses) || 0,
