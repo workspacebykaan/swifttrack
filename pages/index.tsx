@@ -25,6 +25,9 @@ export default function Home() {
   const [status, setStatus] = useState('Aktif');
   const [deadline, setDeadline] = useState('');
 
+  // Takvimde bugünden öncesinin seçilmesini engellemek için bugünün tarihini alıyoruz (YYYY-MM-DD formatında)
+  const todayStr = new Date().toISOString().split('T')[0];
+
   // Projeleri Veritabanından Çekme (Hata Yakalama Zırhlı)
   const fetchProjects = async () => {
     try {
@@ -42,7 +45,6 @@ export default function Home() {
     } catch (err) {
       console.error("Beklenmeyen bir hata oluştu:", err);
     } finally {
-      // Hata olsa da olmasa da yükleniyor yazısını KALDIR!
       setLoading(false);
     }
   };
@@ -51,17 +53,22 @@ export default function Home() {
     fetchProjects();
   }, []);
 
-  // Yeni Proje Kaydetme (name zorunluluğunu aşan yapı)
+  // Yeni Proje Kaydetme
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !client || !budget) return alert('Lütfen zorunlu alanları doldurun!');
+
+    // Kod tarafında da ekstra güvenlik: Girilen tarih bugünden eskiyse engelle
+    if (deadline && deadline < todayStr) {
+      return alert('Geçmiş bir teslim tarihi (deadline) seçemezsiniz!');
+    }
 
     const { data: { user } } = await supabase.auth.getUser();
 
     const { error } = await supabase.from('projects').insert([
       {
         title,            
-        name: title,      // Eski ve inatçı name sütununu dolduruyoruz
+        name: title,      
         client,
         budget: Number(budget),
         expenses: Number(expenses) || 0,
@@ -77,10 +84,9 @@ export default function Home() {
       setBudget('');
       setExpenses('');
       setDeadline('');
-      fetchProjects(); // Kayıttan sonra listeyi yenile
+      fetchProjects();
     } else {
       alert('Proje eklenirken bir hata oluştu: ' + error.message);
-      console.error("Ekleme hatası:", error);
     }
   };
 
@@ -94,11 +100,9 @@ export default function Home() {
       .eq('id', projectId);
 
     if (!error) {
-      // Sayfayı tamamen yenilemeden arayüzde anlık güncelleme yapar
       setProjects(projects.map(p => p.id === projectId ? { ...p, status: newStatus } : p));
     } else {
       alert('Durum güncellenirken bir hata oluştu.');
-      console.error("Güncelleme hatası:", error);
     }
   };
 
@@ -179,6 +183,7 @@ export default function Home() {
                   <input
                     type="date"
                     value={deadline}
+                    min={todayStr} // <-- BURASI: Bugünden önceki tarihlerin seçilmesini engeller!
                     onChange={(e) => setDeadline(e.target.value)}
                     className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                   />
