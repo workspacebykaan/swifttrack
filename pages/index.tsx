@@ -14,10 +14,21 @@ interface Project {
 }
 
 export default function Home() {
+  // Oturum durumunu takip eden state
+  const [session, setSession] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  
+  // Proje Listesi ve Yüklenme State'leri
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Form State Yapısı
+  // Giriş/Kayıt Formu State'leri
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authMessage, setAuthMessage] = useState('');
+
+  // Proje Form State Yapısı
   const [title, setTitle] = useState('');
   const [client, setClient] = useState('');
   const [budget, setBudget] = useState('');
@@ -26,15 +37,28 @@ export default function Home() {
   const [deadline, setDeadline] = useState('');
 
   // Düzenleme Modu State'leri
-  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
-
-  // 1. YENİ ÖZELLİK: Filtreleme Sekmesi State'i (Tümü / Aktif / Tamamlandı)
+  const [editingProjectIdId, setEditingProjectId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'Tümü' | 'Aktif' | 'Tamamlandı'>('Tümü');
 
-  // Takvim kısıtlaması için bugünün tarihi
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Projeleri Veritabanından Çekme
+  // 1. ADIM: Kullanıcının oturum açıp açmadığını kontrol et
+  useEffect(() => {
+    // Mevcut oturumu al
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    // Oturum değişikliklerini dinle (Giriş/Çıkış yapıldığında tetiklenir)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // 2. ADIM: Eğer oturum varsa projeleri çek (Sadece giriş yapan kullanıcınınkileri çekmesi için RLS kuralları Supabase'de aktif olmalı)
   const fetchProjects = async () => {
     try {
       setLoading(true);
@@ -56,20 +80,41 @@ export default function Home() {
   };
 
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    if (session) {
+      fetchProjects();
+    }
+  }, [session]);
 
-  // Proje Oluşturma VEYA Güncelleme Fonksiyonu
+  // Giriş Yapma / Kayıt Olma İşlemi
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthMessage('');
+    if (!authEmail || !authPassword) return alert('Lütfen tüm alanları doldurun!');
+
+    if (authMode === 'login') {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: authEmail,
+        password: authPassword,
+      });
+      if (error) setAuthMessage('Hata: ' + error.message);
+    } else {
+      const { error } = await supabase.auth.signUp({
+        email: authEmail,
+        password: authPassword,
+      });
+      if (error) {
+        setAuthMessage('Hata: ' + error.message);
+      } else {
+        setAuthMessage('Kayıt başarılı! E-posta adresinizi kontrol edin veya giriş yapmayı deneyin.');
+      }
+    }
+  };
+
+  // Proje Oluşturma VEYA Güncelleme
   const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !client || !budget) return alert('Lütfen zorunlu alanları doldurun!');
-
-    // Geçmiş tarih kontrolü
-    if (deadline && deadline < todayStr) {
-      return alert('Geçmiş bir teslim tarihi (deadline) seçemezsiniz!');
-    }
-
-    const { data: { user } } = await supabase.auth.getUser();
+    if (deadline && deadline < todayStr) return alert('Geçmiş bir teslim tarihi seçemezsiniz!');
 
     const projectData = {
       title,            
@@ -79,37 +124,29 @@ export default function Home() {
       expenses: Number(expenses) || 0,
       status,
       deadline: deadline || null,
-      user_id: user?.id
+      user_id: session?.user?.id // Giriş yapan kullanıcının ID'sini ekliyoruz
     };
 
-    if (editingProjectId) {
-      // DÜZENLEME MODU: Mevcut projeyi güncelle
-      const { error } = await supabase
-        .from('projects')
-        .update(projectData)
-        .eq('id', editingProjectId);
-
+    if (editingProjectIdId) {
+      const { error } = await supabase.from('projects').update(projectData).eq('id', editingProjectIdId);
       if (!error) {
         setEditingProjectId(null);
         clearForm();
         fetchProjects();
       } else {
-        alert('Proje güncellenirken hata oluştu: ' + error.message);
+        alert('Hata: ' + error.message);
       }
     } else {
-      // YENİ EKLEME MODU: Sıfırdan ekle
       const { error } = await supabase.from('projects').insert([projectData]);
-
       if (!error) {
         clearForm();
         fetchProjects();
       } else {
-        alert('Proje eklenirken hata oluştu: ' + error.message);
+        alert('Hata: ' + error.message);
       }
     }
   };
 
-  // Düzenleme Butonuna Basıldığında Formu Dolduran Fonksiyon
   const handleEditClick = (project: Project) => {
     setEditingProjectId(project.id);
     setTitle(project.title);
@@ -118,83 +155,130 @@ export default function Home() {
     setExpenses(project.expenses.toString());
     setStatus(project.status);
     setDeadline(project.deadline ? project.deadline.split('T')[0] : '');
-    
-    // Sayfayı yukarı kaydır ki kullanıcı formu rahat görsün
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Proje Silme Fonksiyonu
   const handleDeleteProject = async (projectId: string) => {
-    const confirmDelete = confirm('Bu projeyi tamamen silmek istediğinize emin misiniz? Bu işlem geri alınamaz.');
-    if (!confirmDelete) return;
-
-    const { error } = await supabase
-      .from('projects')
-      .delete()
-      .eq('id', projectId);
-
+    if (!confirm('Bu projeyi silmek istediğinize emin misiniz?')) return;
+    const { error } = await supabase.from('projects').delete().eq('id', projectId);
     if (!error) {
       setProjects(projects.filter(p => p.id !== projectId));
-      if (editingProjectId === projectId) {
+      if (editingProjectIdId === projectId) {
         setEditingProjectId(null);
         clearForm();
       }
-    } else {
-      alert('Proje silinirken bir hata oluştu.');
     }
   };
 
-  // Listeden Hızlı Durum Güncelleme (Aktif <-> Tamamlandı)
   const toggleProjectStatus = async (projectId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'Aktif' ? 'Tamamlandı' : 'Aktif';
-
-    const { error } = await supabase
-      .from('projects')
-      .update({ status: newStatus })
-      .eq('id', projectId);
-
+    const { error } = await supabase.from('projects').update({ status: newStatus }).eq('id', projectId);
     if (!error) {
       setProjects(projects.map(p => p.id === projectId ? { ...p, status: newStatus } : p));
-    } else {
-      alert('Durum güncellenirken bir hata oluştu.');
     }
   };
 
-  // 2. YENİ ÖZELLİK: Güvenli Çıkış Yapma Fonksiyonu
   const handleLogout = async () => {
-    const confirmLogout = confirm('Oturumu kapatmak istediğinize emin misiniz?');
-    if (!confirmLogout) return;
+    if (!confirm('Çıkış yapmak istediğinize emin misiniz?')) return;
     await supabase.auth.signOut();
-    window.location.reload(); // Supabase auth durum dinleyicisi sayfayı login ekranına düşürür
+    setProjects([]);
   };
 
-  // Formu Temizleme Yardımcısı
   const clearForm = () => {
-    setTitle('');
-    setClient('');
-    setBudget('');
-    setExpenses('');
-    setDeadline('');
-    setStatus('Aktif');
+    setTitle(''); setClient(''); setBudget(''); setExpenses(''); setDeadline(''); setStatus('Aktif');
   };
 
-  // Filtreleme mantığını uygulayan liste
-  const filteredProjects = projects.filter(project => {
-    if (filter === 'Tümü') return true;
-    return project.status === filter;
-  });
+  const filteredProjects = projects.filter(p => filter === 'Tümü' ? true : p.status === filter);
 
+  // İlk yüklemede session kontrol ediliyorken boş ekran gösterme, yükleniyor de
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center text-gray-400">
+        <p className="text-sm">Oturum kontrol ediliyor...</p>
+      </div>
+    );
+  }
+
+  // 3. ADIM: EĞER KULLANICI GİRİŞ YAPMAMIŞSA BU EKRANI GÖSTER (Giriş / Kayıt Paneli)
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-[#0B0F19] text-gray-100 flex items-center justify-center p-4 font-sans">
+        <div className="bg-[#111827] border border-gray-800 rounded-xl p-6 md:p-8 shadow-2xl w-full max-w-md space-y-6">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent mb-2">
+              Freelancer Finansal Takip
+            </h1>
+            <p className="text-xs text-gray-400">Projelerinizi yönetmek için giriş yapın veya hesap oluşturun</p>
+          </div>
+
+          <form onSubmit={handleAuth} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-400 mb-1">E-Posta Adresi</label>
+              <input
+                type="email"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-gray-100"
+                placeholder="ornek@domain.com"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-400 mb-1">Şifre</label>
+              <input
+                type="password"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-gray-100"
+                placeholder="••••••••"
+                required
+              />
+            </div>
+
+            {authMessage && (
+              <p className="text-xs text-center p-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-md">
+                {authMessage}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors shadow-lg"
+            >
+              {authMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol'}
+            </button>
+          </form>
+
+          <div className="text-center pt-2 border-t border-gray-800">
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode(authMode === 'login' ? 'register' : 'login');
+                setAuthMessage('');
+              }}
+              className="text-xs text-blue-400 hover:underline"
+            >
+              {authMode === 'login' ? 'Hesabınız yok mu? Yeni hesap oluşturun' : 'Zaten hesabınız var mı? Giriş yapın'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. ADIM: EĞER GİRİŞ YAPILDIYSA ASIL UYGULAMAYI GÖSTER
   return (
     <div className="min-h-screen bg-[#0B0F19] text-gray-100 p-4 md:p-6 font-sans">
       <main className="max-w-7xl mx-auto space-y-6 md:space-y-8">
         
-        {/* Üst Bar / Navbar: Uygulama Başlığı ve Çıkış Butonu */}
+        {/* Üst Navbar / Bilgi Alanı */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#111827] border border-gray-800 rounded-xl p-4 shadow-xl">
           <div>
             <h1 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
               Freelancer Finansal Takip
             </h1>
-            <p className="text-xs text-gray-400">Proje bütçelerinizi ve teslim tarihlerini tek ekrandan yönetin</p>
+            <p className="text-xs text-gray-400">Aktif Kullanıcı: <span className="text-blue-400 font-mono">{session.user?.email}</span></p>
           </div>
           <button
             onClick={handleLogout}
@@ -207,19 +291,18 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Dashboard Bileşeni */}
+        {/* Dashboard Grafikler */}
         <AnalyticsDashboard projects={projects} isPro={false} />
 
-        {/* 3. YENİ ÖZELLİK: Mobil uyumlu duyarlı grid yapısı */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
           
-          {/* Proje Tanımlama / Düzenleme Formu */}
+          {/* Proje Formu */}
           <div className="bg-[#111827] border border-gray-800 rounded-xl p-5 md:p-6 shadow-xl h-fit">
             <h2 className="text-lg md:text-xl font-bold mb-1">
-              {editingProjectId ? 'Proje Bilgilerini Güncelle' : 'Yeni Proje Tanımla'}
+              {editingProjectIdId ? 'Proje Bilgilerini Güncelle' : 'Yeni Proje Tanımla'}
             </h2>
             <p className="text-xs text-gray-400 mb-6">
-              {editingProjectId ? 'Mevcut projenin verilerini revize ediyorsunuz' : 'Sisteme yeni bir finansal hacim ekleyin'}
+              {editingProjectIdId ? 'Mevcut projenin verilerini revize ediyorsunuz' : 'Sisteme yeni bir finansal hacim ekleyin'}
             </p>
 
             <form onSubmit={handleSaveProject} className="space-y-4">
@@ -235,7 +318,7 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1">Müşteri / Şiriket *</label>
+                <label className="block text-xs font-semibold text-gray-400 mb-1">Müşteri / Şirket *</label>
                 <input
                   type="text"
                   value={client}
@@ -293,7 +376,7 @@ export default function Home() {
               </div>
 
               <div className="flex gap-2 pt-2">
-                {editingProjectId && (
+                {editingProjectIdId && (
                   <button
                     type="button"
                     onClick={() => { setEditingProjectId(null); clearForm(); }}
@@ -305,16 +388,16 @@ export default function Home() {
                 <button
                   type="submit"
                   className={`font-semibold text-sm py-2.5 rounded-lg transition-colors ${
-                    editingProjectId ? 'w-2/3 bg-green-600 hover:bg-green-700 text-white' : 'w-full bg-blue-600 hover:bg-blue-700 text-white'
+                    editingProjectIdId ? 'w-2/3 bg-green-600 hover:bg-green-700 text-white' : 'w-full bg-blue-600 hover:bg-blue-700 text-white'
                   }`}
                 >
-                  {editingProjectId ? 'Değişiklikleri Kaydet' : 'Projeyi Kaydet'}
+                  {editingProjectIdId ? 'Değişiklikleri Kaydet' : 'Projeyi Kaydet'}
                 </button>
               </div>
             </form>
           </div>
 
-          {/* Proje Listesi Kolonu */}
+          {/* Proje Tablosu */}
           <div className="bg-[#111827] border border-gray-800 rounded-xl p-5 md:p-6 shadow-xl lg:col-span-2">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
               <div>
@@ -326,7 +409,7 @@ export default function Home() {
               </span>
             </div>
 
-            {/* Filtreleme Sekmeleri Buton Grubu */}
+            {/* Filtreleme Butonları */}
             <div className="flex bg-[#1F2937]/60 p-1 rounded-lg border border-gray-800 mb-6 max-w-xs">
               {(['Tümü', 'Aktif', 'Tamamlandı'] as const).map((tab) => (
                 <button
@@ -334,9 +417,7 @@ export default function Home() {
                   type="button"
                   onClick={() => setFilter(tab)}
                   className={`flex-1 text-center py-1.5 text-xs font-medium rounded-md transition-all ${
-                    filter === tab
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : 'text-gray-400 hover:text-gray-200'
+                    filter === tab ? 'bg-blue-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-200'
                   }`}
                 >
                   {tab}
@@ -351,7 +432,6 @@ export default function Home() {
                 Bu kategoride listelenecek proje bulunamadı.
               </div>
             ) : (
-              /* Mobil Uyumlu: Taşmaları Önleyen Yatay Kaydırılabilir Tablo Alanı */
               <div className="overflow-x-auto w-full -mx-5 px-5 sm:mx-0 sm:px-0">
                 <table className="w-full text-left border-collapse min-w-[650px]">
                   <thead>
@@ -377,7 +457,6 @@ export default function Home() {
                         <td className="py-4 pr-2">
                           <button
                             onClick={() => toggleProjectStatus(project.id, project.status)}
-                            title="Durumu değiştirmek için tıklayın"
                             className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors border ${
                               project.status === 'Tamamlandı'
                                 ? 'bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20'
@@ -391,14 +470,12 @@ export default function Home() {
                           {project.deadline ? new Date(project.deadline).toLocaleDateString('tr-TR') : '-'}
                         </td>
                         <td className="py-4 text-right space-x-2 whitespace-nowrap">
-                          {/* Düzenleme Butonu */}
                           <button
                             onClick={() => handleEditClick(project)}
                             className="text-xs bg-yellow-600/10 text-yellow-400 border border-yellow-500/20 hover:bg-yellow-500/20 px-2.5 py-1 rounded transition-colors"
                           >
                             Düzenle
                           </button>
-                          {/* Silme Butonu */}
                           <button
                             onClick={() => handleDeleteProject(project.id)}
                             className="text-xs bg-red-600/10 text-red-400 border border-red-500/20 hover:bg-red-600/20 px-2.5 py-1 rounded transition-colors"
