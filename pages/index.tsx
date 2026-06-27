@@ -74,10 +74,18 @@ export default function Home() {
     }
   }, [session]);
 
-  // Arka Planda Özellik Kullanımını Takip Eden Fonksiyon
+  // Arka Planda Özellik Kullanımını Takip Eden Gelişmiş Fonksiyon
   const trackEvent = async (eventName: string) => {
     if (!session?.user?.id) return;
-    await supabase.from('feature_usage').insert([{ user_id: session.user.id, event_name: eventName }]);
+    const { error } = await supabase
+      .from('feature_usage')
+      .insert([{ user_id: session.user.id, event_name: eventName }]);
+    
+    if (error) {
+      console.error("❌ Analitik (feature_usage) verisi yazılamadı:", error.message);
+    } else {
+      console.log("✅ Analitik verisi başarıyla gönderildi:", eventName);
+    }
   };
 
   // GİRİŞ / KAYIT VE LOGLAMA FONKSİYONU
@@ -86,7 +94,6 @@ export default function Home() {
     setAuthMessage('');
     if (!authEmail || !authPassword) return alert('Lütfen tüm alanları doldurun!');
 
-    // Kullanıcının Cihaz/Tarayıcı bilgisini alıyoruz
     const deviceInfo = window.navigator.userAgent;
 
     if (authMode === 'login') {
@@ -94,12 +101,10 @@ export default function Home() {
       
       if (error) {
         setAuthMessage('Hata: ' + error.message);
-        // BAŞARISIZ GİRİŞ DENEMESİNİ VERİTABANINA YAZ (Kim, hangi cihazdan denedi?)
         await supabase.from('login_logs').insert([
           { email: authEmail, status: 'Başarısız Giriş - Hatalı Şifre', device_info: deviceInfo }
         ]);
       } else {
-        // BAŞARILI GİRİŞ LOGU
         await supabase.from('login_logs').insert([
           { email: authEmail, status: 'Başarılı Giriş', device_info: deviceInfo }
         ]);
@@ -110,7 +115,6 @@ export default function Home() {
         setAuthMessage('Hata: ' + error.message);
       } else {
         setAuthMessage('Kayıt başarılı! Giriş yapabilirsiniz.');
-        // YENİ KAYIT LOGU
         await supabase.from('login_logs').insert([
           { email: authEmail, status: 'Yeni Kayıt Oluşturuldu', device_info: deviceInfo }
         ]);
@@ -212,7 +216,6 @@ export default function Home() {
     return <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center text-gray-400 font-sans"><p className="text-sm">Oturum kontrol ediliyor...</p></div>;
   }
 
-  // --- GİRİŞ EKRANI ---
   if (!session) {
     return (
       <div className="min-h-screen bg-[#0B0F19] text-gray-100 flex items-center justify-center p-4 font-sans">
@@ -245,12 +248,9 @@ export default function Home() {
     );
   }
 
-  // --- ANA DASHBOARD EKRANI ---
   return (
     <div className="min-h-screen bg-[#0B0F19] text-gray-100 p-4 md:p-6 font-sans">
       <main className="max-w-7xl mx-auto space-y-6 md:space-y-8">
-        
-        {/* Üst Kısım */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#111827] border border-gray-800 rounded-xl p-4 shadow-xl">
           <div>
             <h1 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">Freelancer Finansal Takip</h1>
@@ -264,8 +264,6 @@ export default function Home() {
         <AnalyticsDashboard projects={projects} isPro={false} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-          
-          {/* Form Alanı */}
           <div className="bg-[#111827] border border-gray-800 rounded-xl p-5 md:p-6 shadow-xl h-fit">
             <h2 className="text-lg md:text-xl font-bold mb-1">{editingProjectId ? 'Proje Bilgilerini Güncelle' : 'Yeni Proje Tanımla'}</h2>
             <form onSubmit={handleSaveProject} className="space-y-4 mt-6">
@@ -294,7 +292,6 @@ export default function Home() {
             </form>
           </div>
 
-          {/* Tablo Alanı */}
           <div className="bg-[#111827] border border-gray-800 rounded-xl p-5 md:p-6 shadow-xl lg:col-span-2">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
               <div>
