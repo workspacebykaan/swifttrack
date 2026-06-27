@@ -42,15 +42,13 @@ export default function Home() {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // 1. ADIM: Kullanıcının oturum açıp açmadığını kontrol et
+  // Kullanıcının oturum açıp açmadığını kontrol et
   useEffect(() => {
-    // Mevcut oturumu al
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthLoading(false);
     });
 
-    // Oturum değişikliklerini dinle (Giriş/Çıkış yapıldığında tetiklenir)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
@@ -58,13 +56,14 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 2. ADIM: Eğer oturum varsa projeleri çek (Sadece giriş yapan kullanıcınınkileri çekmesi için RLS kuralları Supabase'de aktif olmalı)
-  const fetchProjects = async () => {
+  // KRİTİK DÜZELTME: Sadece giriş yapan kullanıcının kendi projelerini çekmesini sağlıyoruz
+  const fetchProjects = async (userId: string) => {
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('projects')
         .select('*')
+        .eq('user_id', userId) // <-- İŞTE BURASI! Sadece bu kullanıcının ID'sine eşit olanları getir.
         .order('deadline', { ascending: true });
 
       if (error) {
@@ -80,8 +79,10 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (session) {
-      fetchProjects();
+    if (session?.user?.id) {
+      fetchProjects(session.user.id);
+    } else {
+      setProjects([]);
     }
   }, [session]);
 
@@ -105,7 +106,7 @@ export default function Home() {
       if (error) {
         setAuthMessage('Hata: ' + error.message);
       } else {
-        setAuthMessage('Kayıt başarılı! E-posta adresinizi kontrol edin veya giriş yapmayı deneyin.');
+        setAuthMessage('Kayıt başarılı! Giriş yapabilirsiniz.');
       }
     }
   };
@@ -124,7 +125,7 @@ export default function Home() {
       expenses: Number(expenses) || 0,
       status,
       deadline: deadline || null,
-      user_id: session?.user?.id // Giriş yapan kullanıcının ID'sini ekliyoruz
+      user_id: session?.user?.id // Projeyi ekleyen kişinin ID'sini kaydediyoruz
     };
 
     if (editingProjectIdId) {
@@ -132,7 +133,7 @@ export default function Home() {
       if (!error) {
         setEditingProjectId(null);
         clearForm();
-        fetchProjects();
+        fetchProjects(session.user.id);
       } else {
         alert('Hata: ' + error.message);
       }
@@ -140,7 +141,7 @@ export default function Home() {
       const { error } = await supabase.from('projects').insert([projectData]);
       if (!error) {
         clearForm();
-        fetchProjects();
+        fetchProjects(session.user.id);
       } else {
         alert('Hata: ' + error.message);
       }
@@ -190,16 +191,14 @@ export default function Home() {
 
   const filteredProjects = projects.filter(p => filter === 'Tümü' ? true : p.status === filter);
 
-  // İlk yüklemede session kontrol ediliyorken boş ekran gösterme, yükleniyor de
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center text-gray-400">
+      <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center text-gray-400 font-sans">
         <p className="text-sm">Oturum kontrol ediliyor...</p>
       </div>
     );
   }
 
-  // 3. ADIM: EĞER KULLANICI GİRİŞ YAPMAMIŞSA BU EKRANI GÖSTER (Giriş / Kayıt Paneli)
   if (!session) {
     return (
       <div className="min-h-screen bg-[#0B0F19] text-gray-100 flex items-center justify-center p-4 font-sans">
@@ -267,12 +266,11 @@ export default function Home() {
     );
   }
 
-  // 4. ADIM: EĞER GİRİŞ YAPILDIYSA ASIL UYGULAMAYI GÖSTER
   return (
     <div className="min-h-screen bg-[#0B0F19] text-gray-100 p-4 md:p-6 font-sans">
       <main className="max-w-7xl mx-auto space-y-6 md:space-y-8">
         
-        {/* Üst Navbar / Bilgi Alanı */}
+        {/* Üst Navbar */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#111827] border border-gray-800 rounded-xl p-4 shadow-xl">
           <div>
             <h1 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
@@ -291,7 +289,7 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Dashboard Grafikler */}
+        {/* Dashboard */}
         <AnalyticsDashboard projects={projects} isPro={false} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
