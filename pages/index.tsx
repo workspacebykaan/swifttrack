@@ -25,25 +25,28 @@ export default function Home() {
   const [status, setStatus] = useState('Aktif');
   const [deadline, setDeadline] = useState('');
 
-  // Takvimde bugünden öncesinin seçilmesini engellemek için bugünün tarihini alıyoruz (YYYY-MM-DD formatında)
+  // Düzenleme Modu State'leri
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+
+  // Takvim kısıtlaması için bugünün tarihi
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Projeleri Veritabanından Çekme (Hata Yakalama Zırhlı)
+  // Projeleri Veritabanından Çekme
   const fetchProjects = async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('projects')
         .select('*')
-        .order('deadline', { ascending: true }); // Teslim tarihi en yakın olanı en yukarı taşır
+        .order('deadline', { ascending: true });
 
       if (error) {
-        console.error("Supabase veri çekerken hata fırlattı:", error);
+        console.error("Supabase veri çekerken hata:", error);
       } else if (data) {
         setProjects(data as Project[]);
       }
     } catch (err) {
-      console.error("Beklenmeyen bir hata oluştu:", err);
+      console.error("Beklenmeyen hata:", err);
     } finally {
       setLoading(false);
     }
@@ -53,44 +56,94 @@ export default function Home() {
     fetchProjects();
   }, []);
 
-  // Yeni Proje Kaydetme
-  const handleCreateProject = async (e: React.FormEvent) => {
+  // Proje Oluşturma VEYA Güncelleme Fonksiyonu
+  const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !client || !budget) return alert('Lütfen zorunlu alanları doldurun!');
 
-    // Kod tarafında da ekstra güvenlik: Girilen tarih bugünden eskiyse engelle
+    // Geçmiş tarih kontrolü
     if (deadline && deadline < todayStr) {
       return alert('Geçmiş bir teslim tarihi (deadline) seçemezsiniz!');
     }
 
     const { data: { user } } = await supabase.auth.getUser();
 
-    const { error } = await supabase.from('projects').insert([
-      {
-        title,            
-        name: title,      
-        client,
-        budget: Number(budget),
-        expenses: Number(expenses) || 0,
-        status,
-        deadline: deadline || null,
-        user_id: user?.id
-      }
-    ]);
+    const projectData = {
+      title,            
+      name: title,      
+      client,
+      budget: Number(budget),
+      expenses: Number(expenses) || 0,
+      status,
+      deadline: deadline || null,
+      user_id: user?.id
+    };
 
-    if (!error) {
-      setTitle('');
-      setClient('');
-      setBudget('');
-      setExpenses('');
-      setDeadline('');
-      fetchProjects();
+    if (editingProjectId) {
+      // DÜZENLEME MODU: Mevcut projeyi güncelle
+      const { error } = await supabase
+        .from('projects')
+        .update(projectData)
+        .eq('id', editingProjectId);
+
+      if (!error) {
+        setEditingProjectId(null);
+        clearForm();
+        fetchProjects();
+      } else {
+        alert('Proje güncellenirken hata oluştu: ' + error.message);
+      }
     } else {
-      alert('Proje eklenirken bir hata oluştu: ' + error.message);
+      // YENİ EKLEME MODU: Sıfırdan ekle
+      const { error } = await supabase.from('projects').insert([projectData]);
+
+      if (!error) {
+        clearForm();
+        fetchProjects();
+      } else {
+        alert('Proje eklenirken hata oluştu: ' + error.message);
+      }
     }
   };
 
-  // Listeden Durum Güncelleme (Aktif <-> Tamamlandı)
+  // Düzenleme Butonuna Basıldığında Formu Dolduran Fonksiyon
+  const handleEditClick = (project: Project) => {
+    setEditingProjectId(project.id);
+    setTitle(project.title);
+    setClient(project.client);
+    setBudget(project.budget.toString());
+    setExpenses(project.expenses.toString());
+    setStatus(project.status);
+    setDeadline(project.deadline ? project.deadline.split('T')[0] : '');
+    
+    // Sayfayı yukarı kaydır ki kullanıcı formu rahat görsün
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Proje Silme Fonksiyonu
+  const handleDeleteProject = async (projectId: string) => {
+    const confirmDelete = confirm('Bu projeyi tamamen silmek istediğinize emin misiniz? Bu işlem geri alınamaz.');
+    if (!confirmDelete) return;
+
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', projectId);
+
+    if (!error) {
+      // Silinen projeyi state'ten filtrele ve ekranı anlık güncelle
+      setProjects(projects.filter(p => p.id !== projectId));
+      // Eğer şu an düzenlenen proje silindiyse formu da temizle
+      if (editingProjectId === projectId) {
+        setEditingProjectId(null);
+        clearForm();
+      }
+    } else {
+      alert('Proje silinirken bir hata oluştu.');
+    }
+  };
+
+  // Listeden Hızlı Durum Güncelleme (Aktif <-> Tamamlandı)
   const toggleProjectStatus = async (projectId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'Aktif' ? 'Tamamlandı' : 'Aktif';
 
@@ -106,6 +159,16 @@ export default function Home() {
     }
   };
 
+  // Formu Temizleme Yardımcısı
+  const clearForm = () => {
+    setTitle('');
+    setClient('');
+    setBudget('');
+    setExpenses('');
+    setDeadline('');
+    setStatus('Aktif');
+  };
+
   return (
     <div className="min-h-screen bg-[#0B0F19] text-gray-100 p-6 font-sans">
       <main className="max-w-7xl mx-auto space-y-8">
@@ -115,12 +178,16 @@ export default function Home() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Proje Tanımlama Formu */}
+          {/* Proje Tanımlama / Düzenleme Formu */}
           <div className="bg-[#111827] border border-gray-800 rounded-xl p-6 shadow-xl h-fit">
-            <h2 className="text-xl font-bold mb-1">Yeni Proje Tanımla</h2>
-            <p className="text-xs text-gray-400 mb-6">Sisteme yeni bir finansal hacim ekleyin</p>
+            <h2 className="text-xl font-bold mb-1">
+              {editingProjectId ? 'Proje Bilgilerini Güncelle' : 'Yeni Proje Tanımla'}
+            </h2>
+            <p className="text-xs text-gray-400 mb-6">
+              {editingProjectId ? 'Mevcut projenin verilerini revize ediyorsunuz' : 'Sisteme yeni bir finansal hacim ekleyin'}
+            </p>
 
-            <form onSubmit={handleCreateProject} className="space-y-4">
+            <form onSubmit={handleSaveProject} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-400 mb-1">Proje Adı *</label>
                 <input
@@ -183,19 +250,32 @@ export default function Home() {
                   <input
                     type="date"
                     value={deadline}
-                    min={todayStr} // <-- BURASI: Bugünden önceki tarihlerin seçilmesini engeller!
+                    min={todayStr}
                     onChange={(e) => setDeadline(e.target.value)}
                     className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                   />
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm py-2.5 rounded-lg mt-2 transition-colors"
-              >
-                Projeyi Kaydet
-              </button>
+              <div className="flex gap-2 pt-2">
+                {editingProjectId && (
+                  <button
+                    type="button"
+                    onClick={() => { setEditingProjectId(null); clearForm(); }}
+                    className="w-1/3 bg-gray-700 hover:bg-gray-600 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors"
+                  >
+                    Vazgeç
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  className={`font-semibold text-sm py-2.5 rounded-lg transition-colors ${
+                    editingProjectId ? 'w-2/3 bg-green-600 hover:bg-green-700 text-white' : 'w-full bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
+                >
+                  {editingProjectId ? 'Değişiklikleri Kaydet' : 'Projeyi Kaydet'}
+                </button>
+              </div>
             </form>
           </div>
 
@@ -226,6 +306,7 @@ export default function Home() {
                       <th className="pb-3">FİNANSAL DURUM</th>
                       <th className="pb-3">DURUM (DEĞİŞTİR)</th>
                       <th className="pb-3">DEADLINE</th>
+                      <th className="pb-3 text-right">İŞLEMLER</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800 text-sm">
@@ -254,6 +335,22 @@ export default function Home() {
                         </td>
                         <td className="py-4 text-gray-400 text-xs font-mono">
                           {project.deadline ? new Date(project.deadline).toLocaleDateString('tr-TR') : '-'}
+                        </td>
+                        <td className="py-4 text-right space-x-2">
+                          {/* Düzenleme Butonu */}
+                          <button
+                            onClick={() => handleEditClick(project)}
+                            className="text-xs bg-yellow-600/10 text-yellow-400 border border-yellow-500/20 hover:bg-yellow-500/20 px-2.5 py-1 rounded transition-colors"
+                          >
+                            Düzenle
+                          </button>
+                          {/* Silme Butonu */}
+                          <button
+                            onClick={() => handleDeleteProject(project.id)}
+                            className="text-xs bg-red-600/10 text-red-400 border border-red-500/20 hover:bg-red-600/20 px-2.5 py-1 rounded transition-colors"
+                          >
+                            Sil
+                          </button>
                         </td>
                       </tr>
                     ))}
