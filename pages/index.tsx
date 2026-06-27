@@ -98,7 +98,6 @@ export default function Home() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return alert('Lütfen tarayıcınızın açılır pencerelerine (popup) izin verin!');
 
-    // Sadece aktif filtrelenmiş projelerin finansal özetini hesapla
     const totalBudget = filteredProjects.reduce((sum, p) => sum + p.budget, 0);
     const totalExpenses = filteredProjects.reduce((sum, p) => sum + p.expenses, 0);
     const totalNet = totalBudget - totalExpenses;
@@ -212,7 +211,8 @@ export default function Home() {
 
     if (authMode === 'login') {
       if (!authEmail || !authPassword) return alert('Lütfen tüm alanları doldurun!');
-      const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: password => authPassword });
+      // Vercel hatasına sebep olan typo burada tamamen düzeltildi
+      const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
       if (error) {
         setAuthMessage('Hata: ' + error.message);
         await supabase.from('login_logs').insert([{ email: authEmail, status: 'Başarısız Giriş', device_info: deviceInfo }]);
@@ -397,14 +397,12 @@ export default function Home() {
           </div>
 
           <div className="bg-[#111827] border border-gray-800 rounded-xl p-5 md:p-6 shadow-xl lg:col-span-2">
-            {/* PDF İndirme Butonunun Eklendiği Başlık Bölümü */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
               <div>
                 <h2 className="text-lg md:text-xl font-bold mb-1">Tüm Projeler</h2>
                 <p className="text-xs text-gray-400">Yalnızca sizin tarafınızdan eklenen kayıtlar listelenir.</p>
               </div>
               
-              {/* Şık ve İşlevsel PDF Rapor Butonu */}
               <button 
                 onClick={exportToPDF}
                 className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors shadow-md border border-emerald-500/20"
