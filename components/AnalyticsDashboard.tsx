@@ -29,8 +29,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 interface AnalyticsDashboardProps {
-    projects: any[];
-    isPro: boolean; // <-- BU SATIRI EKLEDİK
+    projects: any[]; // (veya Project[])
+    isPro: boolean; // <--- SADECE BU SATIRI EKLE
   }
 
 export default function AnalyticsDashboard({ projects = [] }: AnalyticsDashboardProps) {
