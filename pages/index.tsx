@@ -10,7 +10,7 @@ interface Project {
   expenses: number;
   status: string;
   deadline: string;
-  name?: string; // name sütunu da olabilir
+  name?: string; 
 }
 
 export default function Home() {
@@ -25,25 +25,33 @@ export default function Home() {
   const [status, setStatus] = useState('Aktif');
   const [deadline, setDeadline] = useState('');
 
-  // Projeleri Veritabanından Çekme (Deadline Yaklaşan En Üstte)
+  // Projeleri Veritabanından Çekme (Hata Yakalama Zırhlı)
   const fetchProjects = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*')
-      .order('deadline', { ascending: true }); // Teslim tarihi en yakın olanı en yukarı taşır
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .order('deadline', { ascending: true }); // Teslim tarihi en yakın olanı en yukarı taşır
 
-    if (!error && data) {
-      setProjects(data as Project[]);
+      if (error) {
+        console.error("Supabase veri çekerken hata fırlattı:", error);
+      } else if (data) {
+        setProjects(data as Project[]);
+      }
+    } catch (err) {
+      console.error("Beklenmeyen bir hata oluştu:", err);
+    } finally {
+      // Hata olsa da olmasa da yükleniyor yazısını KALDIR!
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
     fetchProjects();
   }, []);
 
-  // Yeni Proje Kaydetme (name sütununu da dolduruyoruz!)
+  // Yeni Proje Kaydetme (name zorunluluğunu aşan yapı)
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !client || !budget) return alert('Lütfen zorunlu alanları doldurun!');
@@ -52,8 +60,8 @@ export default function Home() {
 
     const { error } = await supabase.from('projects').insert([
       {
-        title,            // Yeni title sütunu
-        name: title,      // Eski ve zorunlu name sütunu (Burayı güncelledik!)
+        title,            
+        name: title,      // Eski ve inatçı name sütununu dolduruyoruz
         client,
         budget: Number(budget),
         expenses: Number(expenses) || 0,
@@ -69,9 +77,10 @@ export default function Home() {
       setBudget('');
       setExpenses('');
       setDeadline('');
-      fetchProjects();
+      fetchProjects(); // Kayıttan sonra listeyi yenile
     } else {
       alert('Proje eklenirken bir hata oluştu: ' + error.message);
+      console.error("Ekleme hatası:", error);
     }
   };
 
@@ -89,6 +98,7 @@ export default function Home() {
       setProjects(projects.map(p => p.id === projectId ? { ...p, status: newStatus } : p));
     } else {
       alert('Durum güncellenirken bir hata oluştu.');
+      console.error("Güncelleme hatası:", error);
     }
   };
 
