@@ -13,13 +13,16 @@ interface Project {
   name?: string; 
 }
 
+type AuthMode = 'login' | 'register' | 'forgot' | 'reset';
+
 export default function Home() {
   const [session, setSession] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  // Auth State'lerine 'forgot' ve 'reset' eklendi
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authMessage, setAuthMessage] = useState('');
@@ -42,8 +45,13 @@ export default function Home() {
       setAuthLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      // Kullanıcı e-postadaki sıfırlama linkine tıkladığında Supabase bu olayı fırlatır
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthMode('reset');
+        setAuthMessage('Lütfen yeni şifrenizi belirleyin.');
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -67,14 +75,13 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (session?.user?.id) {
+    if (session?.user?.id && authMode !== 'reset') {
       fetchProjects(session.user.id);
     } else {
       setProjects([]);
     }
-  }, [session]);
+  }, [session, authMode]);
 
-  // Arka Planda Özellik Kullanımını Takip Eden Gelişmiş Fonksiyon
   const trackEvent = async (eventName: string) => {
     if (!session?.user?.id) return;
     const { error } = await supabase
@@ -88,15 +95,14 @@ export default function Home() {
     }
   };
 
-  // GİRİŞ / KAYIT VE LOGLAMA FONKSİYONU
+  // Geliştirilmiş Auth Fonksiyonu (Şifre Sıfırlama Dahil)
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthMessage('');
-    if (!authEmail || !authPassword) return alert('Lütfen tüm alanları doldurun!');
-
     const deviceInfo = window.navigator.userAgent;
 
     if (authMode === 'login') {
+      if (!authEmail || !authPassword) return alert('Lütfen tüm alanları doldurun!');
       const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
       
       if (error) {
@@ -109,7 +115,9 @@ export default function Home() {
           { email: authEmail, status: 'Başarılı Giriş', device_info: deviceInfo }
         ]);
       }
-    } else {
+    } 
+    else if (authMode === 'register') {
+      if (!authEmail || !authPassword) return alert('Lütfen tüm alanları doldurun!');
       const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
       if (error) {
         setAuthMessage('Hata: ' + error.message);
@@ -119,55 +127,64 @@ export default function Home() {
           { email: authEmail, status: 'Yeni Kayıt Oluşturuldu', device_info: deviceInfo }
         ]);
       }
+    } 
+    else if (authMode === 'forgot') {
+      if (!authEmail) return alert('Lütfen e-posta adresinizi girin!');
+      const { error } = await supabase.auth.resetPasswordForEmail(authEmail, {
+        redirectTo: window.location.origin, // Kullanıcıyı bulunduğumuz sayfaya geri atar
+      });
+      if (error) {
+        setAuthMessage('Hata: ' + error.message);
+      } else {
+        setAuthMessage('✅ Şifre sıfırlama bağlantısı e-postanıza gönderildi! (Spam klasörünü kontrol etmeyi unutmayın)');
+        await supabase.from('login_logs').insert([
+          { email: authEmail, status: 'Şifre Sıfırlama İsteği', device_info: deviceInfo }
+        ]);
+      }
+    }
+    else if (authMode === 'reset') {
+      if (!authPassword) return alert('Lütfen yeni şifrenizi girin!');
+      const { error } = await supabase.auth.updateUser({ password: authPassword });
+      if (error) {
+        setAuthMessage('Hata: ' + error.message);
+      } else {
+        setAuthMessage('✅ Şifreniz başarıyla güncellendi! Dashboard yükleniyor...');
+        await supabase.from('login_logs').insert([
+          { email: session?.user?.email || 'Bilinmiyor', status: 'Şifre Başarıyla Değiştirildi', device_info: deviceInfo }
+        ]);
+        // 1.5 saniye sonra dashboarda yönlendir
+        setTimeout(() => setAuthMode('login'), 1500);
+      }
     }
   };
 
-  // PROJE KAYDETME / GÜNCELLEME
   const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !client || !budget) return alert('Lütfen zorunlu alanları doldurun!');
     if (deadline && deadline < todayStr) return alert('Geçmiş bir teslim tarihi seçemezsiniz!');
 
     const projectData = {
-      title,
-      client,
-      budget: Number(budget),
-      expenses: Number(expenses) || 0,
-      status,
-      deadline: deadline || null,
-      user_id: session?.user?.id
+      title, client, budget: Number(budget), expenses: Number(expenses) || 0,
+      status, deadline: deadline || null, user_id: session?.user?.id
     };
 
     if (editingProjectId) {
       const { error } = await supabase.from('projects').update(projectData).eq('id', editingProjectId);
       if (!error) {
-        trackEvent('project_updated'); 
-        setEditingProjectId(null);
-        clearForm();
-        fetchProjects(session.user.id);
-      } else {
-        alert('Güncelleme Başarısız: ' + error.message);
-      }
+        trackEvent('project_updated'); setEditingProjectId(null); clearForm(); fetchProjects(session.user.id);
+      } else alert('Güncelleme Başarısız: ' + error.message);
     } else {
       const { error } = await supabase.from('projects').insert([projectData]);
       if (!error) {
-        trackEvent('project_created'); 
-        clearForm();
-        fetchProjects(session.user.id);
-      } else {
-        alert('Proje Ekleme Başarısız: ' + error.message);
-      }
+        trackEvent('project_created'); clearForm(); fetchProjects(session.user.id);
+      } else alert('Proje Ekleme Başarısız: ' + error.message);
     }
   };
 
   const handleEditClick = (project: Project) => {
-    setEditingProjectId(project.id);
-    setTitle(project.title);
-    setClient(project.client);
-    setBudget(project.budget.toString());
-    setExpenses(project.expenses.toString());
-    setStatus(project.status);
-    setDeadline(project.deadline ? project.deadline.split('T')[0] : '');
+    setEditingProjectId(project.id); setTitle(project.title); setClient(project.client);
+    setBudget(project.budget.toString()); setExpenses(project.expenses.toString());
+    setStatus(project.status); setDeadline(project.deadline ? project.deadline.split('T')[0] : '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -175,40 +192,29 @@ export default function Home() {
     if (!confirm('Bu projeyi silmek istediğinize emin misiniz?')) return;
     const { error } = await supabase.from('projects').delete().eq('id', projectId);
     if (!error) {
-      trackEvent('project_deleted'); 
-      setProjects(projects.filter(p => p.id !== projectId));
-      if (editingProjectId === projectId) {
-        setEditingProjectId(null);
-        clearForm();
-      }
-    } else {
-      alert('Silme İşlemi Başarısız: ' + error.message);
-    }
+      trackEvent('project_deleted'); setProjects(projects.filter(p => p.id !== projectId));
+      if (editingProjectId === projectId) { setEditingProjectId(null); clearForm(); }
+    } else alert('Silme İşlemi Başarısız: ' + error.message);
   };
 
   const toggleProjectStatus = async (projectId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'Aktif' ? 'Tamamlandı' : 'Aktif';
     const { error } = await supabase.from('projects').update({ status: newStatus }).eq('id', projectId);
     if (!error) {
-      trackEvent('status_toggled'); 
-      setProjects(projects.map(p => p.id === projectId ? { ...p, status: newStatus } : p));
+      trackEvent('status_toggled'); setProjects(projects.map(p => p.id === projectId ? { ...p, status: newStatus } : p));
     }
   };
 
   const handleFilterChange = (tab: 'Tümü' | 'Aktif' | 'Tamamlandı') => {
-    setFilter(tab);
-    trackEvent(`filter_used_${tab.toLowerCase()}`); 
+    setFilter(tab); trackEvent(`filter_used_${tab.toLowerCase()}`); 
   };
 
   const handleLogout = async () => {
     if (!confirm('Çıkış yapmak istediğinize emin misiniz?')) return;
-    await supabase.auth.signOut();
-    setProjects([]);
+    await supabase.auth.signOut(); setProjects([]);
   };
 
-  const clearForm = () => {
-    setTitle(''); setClient(''); setBudget(''); setExpenses(''); setDeadline(''); setStatus('Aktif');
-  };
+  const clearForm = () => { setTitle(''); setClient(''); setBudget(''); setExpenses(''); setDeadline(''); setStatus('Aktif'); };
 
   const filteredProjects = projects.filter(p => filter === 'Tümü' ? true : p.status === filter);
 
@@ -216,38 +222,79 @@ export default function Home() {
     return <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center text-gray-400 font-sans"><p className="text-sm">Oturum kontrol ediliyor...</p></div>;
   }
 
-  if (!session) {
+  // Kullanıcı giriş yapmamışsa VEYA şifre sıfırlama modundaysa Auth UI gösterilecek
+  if (!session || authMode === 'reset') {
     return (
       <div className="min-h-screen bg-[#0B0F19] text-gray-100 flex items-center justify-center p-4 font-sans">
         <div className="bg-[#111827] border border-gray-800 rounded-xl p-6 md:p-8 shadow-2xl w-full max-w-md space-y-6">
           <div className="text-center">
             <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent mb-2">Freelancer Finansal Takip</h1>
-            <p className="text-xs text-gray-400">Projelerinizi yönetmek için giriş yapın veya hesap oluşturun</p>
+            <p className="text-xs text-gray-400">
+              {authMode === 'login' && 'Projelerinizi yönetmek için giriş yapın'}
+              {authMode === 'register' && 'Yeni bir hesap oluşturun'}
+              {authMode === 'forgot' && 'Şifrenizi sıfırlamak için e-posta adresinizi girin'}
+              {authMode === 'reset' && 'Hesabınız için yeni bir şifre belirleyin'}
+            </p>
           </div>
+          
           <form onSubmit={handleAuth} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-400 mb-1">E-Posta Adresi</label>
-              <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-gray-100" required />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-400 mb-1">Şifre</label>
-              <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-gray-100" required />
-            </div>
-            {authMessage && <p className="text-xs text-center p-2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-md">{authMessage}</p>}
+            {/* E-Posta alanı (Reset modunda gizle) */}
+            {authMode !== 'reset' && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 mb-1">E-Posta Adresi</label>
+                <input type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-gray-100" required />
+              </div>
+            )}
+            
+            {/* Şifre alanı (Forgot modunda gizle) */}
+            {authMode !== 'forgot' && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 mb-1">
+                  {authMode === 'reset' ? 'Yeni Şifre' : 'Şifre'}
+                </label>
+                <input type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-gray-100" required />
+              </div>
+            )}
+
+            {authMessage && (
+              <p className={`text-xs text-center p-2 border rounded-md ${authMessage.includes('✅') ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
+                {authMessage}
+              </p>
+            )}
+
             <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm py-2.5 rounded-lg transition-colors shadow-lg">
-              {authMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol'}
+              {authMode === 'login' && 'Giriş Yap'}
+              {authMode === 'register' && 'Kayıt Ol'}
+              {authMode === 'forgot' && 'Sıfırlama Linki Gönder'}
+              {authMode === 'reset' && 'Yeni Şifreyi Kaydet'}
             </button>
           </form>
-          <div className="text-center pt-2 border-t border-gray-800">
-            <button type="button" onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMessage(''); }} className="text-xs text-blue-400 hover:underline">
-              {authMode === 'login' ? 'Hesabınız yok mu? Yeni hesap oluşturun' : 'Zaten hesabınız var mı? Giriş yapın'}
-            </button>
+
+          {/* Alt Yönlendirme Linkleri */}
+          <div className="flex flex-col gap-3 text-center pt-4 border-t border-gray-800">
+            {authMode === 'login' && (
+              <>
+                <button type="button" onClick={() => { setAuthMode('forgot'); setAuthMessage(''); }} className="text-xs text-gray-400 hover:text-blue-400 transition-colors">
+                  Şifremi Unuttum
+                </button>
+                <button type="button" onClick={() => { setAuthMode('register'); setAuthMessage(''); }} className="text-xs text-blue-400 hover:underline">
+                  Hesabınız yok mu? Yeni hesap oluşturun
+                </button>
+              </>
+            )}
+            
+            {(authMode === 'register' || authMode === 'forgot') && (
+              <button type="button" onClick={() => { setAuthMode('login'); setAuthMessage(''); }} className="text-xs text-blue-400 hover:underline">
+                Geri dön ve giriş yap
+              </button>
+            )}
           </div>
         </div>
       </div>
     );
   }
 
+  // --- ANA DASHBOARD EKRANI ---
   return (
     <div className="min-h-screen bg-[#0B0F19] text-gray-100 p-4 md:p-6 font-sans">
       <main className="max-w-7xl mx-auto space-y-6 md:space-y-8">
