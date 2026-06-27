@@ -91,117 +91,118 @@ export default function Home() {
     }
   };
 
-  // Dinamik ve Türkçe Karakter Uyumlu PDF Rapor Oluşturucu
+  // Doğrudan Bilgisayara PDF İndiren Fonksiyon
   const exportToPDF = () => {
     trackEvent('pdf_exported');
-    
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return alert('Lütfen tarayıcınızın açılır pencerelerine (popup) izin verin!');
 
     const totalBudget = filteredProjects.reduce((sum, p) => sum + p.budget, 0);
     const totalExpenses = filteredProjects.reduce((sum, p) => sum + p.expenses, 0);
     const totalNet = totalBudget - totalExpenses;
 
     const tableRows = filteredProjects.map(p => `
-      <tr>
-        <td>
+      <tr style="border-bottom: 1px solid #e5e7eb;">
+        <td style="padding: 12px 8px; vertical-align: middle; text-align: left;">
           <div style="font-weight: 600; color: #111827; font-size: 13px;">${p.title}</div>
           <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">${p.client}</div>
         </td>
-        <td style="color: #10b981; font-weight: 600;">${Number(p.budget).toLocaleString('tr-TR')} ₺</td>
-        <td style="color: #ef4444; font-weight: 500;">${Number(p.expenses).toLocaleString('tr-TR')} ₺</td>
-        <td>
-          <span style="padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; 
+        <td style="padding: 12px 8px; vertical-align: middle; text-align: left; color: #10b981; font-weight: 600;">${Number(p.budget).toLocaleString('tr-TR')} ₺</td>
+        <td style="padding: 12px 8px; vertical-align: middle; text-align: left; color: #ef4444; font-weight: 500;">${Number(p.expenses).toLocaleString('tr-TR')} ₺</td>
+        <td style="padding: 12px 8px; vertical-align: middle; text-align: left;">
+          <span style="padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; display: inline-block;
             background-color: ${p.status === 'Tamamlandı' ? '#ecfdf5' : '#eff6ff'}; 
             color: ${p.status === 'Tamamlandı' ? '#047857' : '#1d4ed8'};
             border: 1px solid ${p.status === 'Tamamlandı' ? '#a7f3d0' : '#bfdbfe'};">
             ${p.status}
           </span>
         </td>
-        <td style="font-family: monospace; color: #4b5563; font-size: 12px;">
+        <td style="padding: 12px 8px; vertical-align: middle; text-align: left; font-family: monospace; color: #4b5563; font-size: 12px;">
           ${p.deadline ? new Date(p.deadline).toLocaleDateString('tr-TR') : '-'}
         </td>
       </tr>
     `).join('');
 
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Finansal_Rapor_${filter}</title>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1f2937; margin: 40px; line-height: 1.5; background: #fff; }
-            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #f3f4f6; padding-bottom: 20px; margin-bottom: 25px; }
-            .title { font-size: 22px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
-            .subtitle { font-size: 12px; color: #6b7280; margin-top: 4px; }
-            .meta { font-size: 12px; color: #4b5563; text-align: right; line-height: 1.6; }
-            .summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 30px; }
-            .card { background: #f9fafb; border: 1px solid #e5e7eb; padding: 14px; border-radius: 10px; }
-            .card-title { font-size: 11px; text-transform: uppercase; color: #6b7280; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 4px; }
-            .card-value { font-size: 18px; font-weight: 700; }
-            table { width: 100%; border-collapse: collapse; text-align: left; margin-top: 10px; }
-            th { border-bottom: 2px solid #e5e7eb; padding: 10px 8px; color: #4b5563; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; }
-            td { border-bottom: 1px solid #f3f4f6; padding: 12px 8px; vertical-align: middle; }
-            @media print {
-              body { margin: 20px; }
-              @page { size: auto; margin: 0mm; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div>
-              <div class="title">Freelancer Finansal Raporu</div>
-              <div class="subtitle">Üretilen listenin mevcut durum ve hak ediş dökümüdür.</div>
-            </div>
-            <div class="meta">
+    // Tamamen Tablo Düzeni ile Kusursuzlaştırılmış Rapor Şablonu
+    const reportTemplate = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1f2937; padding: 30px; background: #fff;">
+        <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #f3f4f6; padding-bottom: 20px; margin-bottom: 25px;">
+          <tr>
+            <td style="vertical-align: top; text-align: left;">
+              <div style="font-size: 22px; font-weight: 800; color: #111827; letter-spacing: -0.5px;">Freelancer Finansal Raporu</div>
+              <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">Üretilen listenin mevcut durum ve hakediş dökümüdür.</div>
+            </td>
+            <td style="vertical-align: top; text-align: right; font-size: 11px; color: #4b5563; line-height: 1.6;">
               <div><strong>Rapor Tarihi:</strong> ${new Date().toLocaleDateString('tr-TR')}</div>
               <div><strong>Kullanıcı:</strong> ${session?.user?.email || 'Bilinmiyor'}</div>
               <div><strong>Kapsam:</strong> ${filter} Projeler</div>
-            </div>
-          </div>
+            </td>
+          </tr>
+        </table>
 
-          <div class="summary-cards">
-            <div class="card" style="border-left: 4px solid #10b981;">
-              <div class="card-title">Toplam Ciro / Bütçe</div>
-              <div class="card-value" style="color: #059669;">${totalBudget.toLocaleString('tr-TR')} ₺</div>
-            </div>
-            <div class="card" style="border-left: 4px solid #ef4444;">
-              <div class="card-title">Toplam Gider</div>
-              <div class="card-value" style="color: #dc2626;">${totalExpenses.toLocaleString('tr-TR')} ₺</div>
-            </div>
-            <div class="card" style="border-left: 4px solid #3b82f6;">
-              <div class="card-title">Net Hak Ediş (Kâr)</div>
-              <div class="card-value" style="color: #2563eb;">${totalNet.toLocaleString('tr-TR')} ₺</div>
-            </div>
-          </div>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+          <tr>
+            <td style="width: 33.33%; padding-right: 10px;">
+              <div style="background: #f9fafb; border: 1px solid #e5e7eb; padding: 14px; border-radius: 10px; border-left: 4px solid #10b981;">
+                <div style="font-size: 10px; text-transform: uppercase; color: #6b7280; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 4px;">Toplam Bütçe</div>
+                <div style="font-size: 18px; font-weight: 700; color: #059669;">${totalBudget.toLocaleString('tr-TR')} ₺</div>
+              </div>
+            </td>
+            <td style="width: 33.33%; padding-right: 10px; padding-left: 10px;">
+              <div style="background: #f9fafb; border: 1px solid #e5e7eb; padding: 14px; border-radius: 10px; border-left: 4px solid #ef4444;">
+                <div style="font-size: 10px; text-transform: uppercase; color: #6b7280; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 4px;">Toplam Gider</div>
+                <div style="font-size: 18px; font-weight: 700; color: #dc2626;">${totalExpenses.toLocaleString('tr-TR')} ₺</div>
+              </div>
+            </td>
+            <td style="width: 33.33%; padding-left: 10px;">
+              <div style="background: #f9fafb; border: 1px solid #e5e7eb; padding: 14px; border-radius: 10px; border-left: 4px solid #3b82f6;">
+                <div style="font-size: 10px; text-transform: uppercase; color: #6b7280; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 4px;">Net Hak Ediş (Kâr)</div>
+                <div style="font-size: 18px; font-weight: 700; color: #2563eb;">${totalNet.toLocaleString('tr-TR')} ₺</div>
+              </div>
+            </td>
+          </tr>
+        </table>
 
-          <table>
-            <thead>
-              <tr>
-                <th>PROJE & MÜŞTERİ</th>
-                <th>BÜTÇE</th>
-                <th>MASRAF</th>
-                <th>DURUM</th>
-                <th>TESLİM TARİHİ</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${tableRows ? tableRows : '<tr><td colspan="5" style="text-align:center; color:#9ca3af; padding:30px;">Listelenecek proje bulunamadı.</td></tr>'}
-            </tbody>
-          </table>
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+          <thead>
+            <tr style="border-bottom: 2px solid #e5e7eb;">
+              <th style="padding: 10px 8px; color: #4b5563; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; text-align: left;">PROJE & MÜŞTERİ</th>
+              <th style="padding: 10px 8px; color: #4b5563; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; text-align: left;">BÜTÇE</th>
+              <th style="padding: 10px 8px; color: #4b5563; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; text-align: left;">MASRAF</th>
+              <th style="padding: 10px 8px; color: #4b5563; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; text-align: left;">DURUM</th>
+              <th style="padding: 10px 8px; color: #4b5563; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; text-align: left;">TESLİM TARİHİ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows ? tableRows : '<tr><td colspan="5" style="text-align:center; color:#9ca3af; padding:30px;">Listelenecek proje bulunamadı.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    `;
 
-          <script>
-            window.onload = function() {
-              setTimeout(function() {
-                window.print();
-                window.close();
-              }, 300);
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+    // İndirme İşlemini Gerçekleştiren Yapı
+    const executeDownload = () => {
+      const element = document.createElement('div');
+      element.innerHTML = reportTemplate;
+      
+      const opt = {
+        margin:       15,
+        filename:     `Finansal_Rapor_${filter}_${new Date().toISOString().split('T')[0]}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      (window as any).html2pdf().set(opt).from(element).save();
+    };
+
+    // Kütüphane yüklenmemişse CDN üzerinden dinamik olarak yükle
+    if (!(window as any).html2pdf) {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.onload = executeDownload;
+      document.body.appendChild(script);
+    } else {
+      executeDownload();
+    }
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -211,7 +212,6 @@ export default function Home() {
 
     if (authMode === 'login') {
       if (!authEmail || !authPassword) return alert('Lütfen tüm alanları doldurun!');
-      // Vercel hatasına sebep olan typo burada tamamen düzeltildi
       const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
       if (error) {
         setAuthMessage('Hata: ' + error.message);
@@ -410,7 +410,7 @@ export default function Home() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
-                PDF Raporu Al ({filter})
+                PDF İndir ({filter})
               </button>
             </div>
 
