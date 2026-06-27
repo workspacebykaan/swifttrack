@@ -28,6 +28,9 @@ export default function Home() {
   // Düzenleme Modu State'leri
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
 
+  // 1. YENİ ÖZELLİK: Filtreleme Sekmesi State'i (Tümü / Aktif / Tamamlandı)
+  const [filter, setFilter] = useState<'Tümü' | 'Aktif' | 'Tamamlandı'>('Tümü');
+
   // Takvim kısıtlaması için bugünün tarihi
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -131,9 +134,7 @@ export default function Home() {
       .eq('id', projectId);
 
     if (!error) {
-      // Silinen projeyi state'ten filtrele ve ekranı anlık güncelle
       setProjects(projects.filter(p => p.id !== projectId));
-      // Eğer şu an düzenlenen proje silindiyse formu da temizle
       if (editingProjectId === projectId) {
         setEditingProjectId(null);
         clearForm();
@@ -159,6 +160,14 @@ export default function Home() {
     }
   };
 
+  // 2. YENİ ÖZELLİK: Güvenli Çıkış Yapma Fonksiyonu
+  const handleLogout = async () => {
+    const confirmLogout = confirm('Oturumu kapatmak istediğinize emin misiniz?');
+    if (!confirmLogout) return;
+    await supabase.auth.signOut();
+    window.location.reload(); // Supabase auth durum dinleyicisi sayfayı login ekranına düşürür
+  };
+
   // Formu Temizleme Yardımcısı
   const clearForm = () => {
     setTitle('');
@@ -169,18 +178,44 @@ export default function Home() {
     setStatus('Aktif');
   };
 
+  // Filtreleme mantığını uygulayan liste
+  const filteredProjects = projects.filter(project => {
+    if (filter === 'Tümü') return true;
+    return project.status === filter;
+  });
+
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-gray-100 p-6 font-sans">
-      <main className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-[#0B0F19] text-gray-100 p-4 md:p-6 font-sans">
+      <main className="max-w-7xl mx-auto space-y-6 md:space-y-8">
         
+        {/* Üst Bar / Navbar: Uygulama Başlığı ve Çıkış Butonu */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#111827] border border-gray-800 rounded-xl p-4 shadow-xl">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+              Freelancer Finansal Takip
+            </h1>
+            <p className="text-xs text-gray-400">Proje bütçelerinizi ve teslim tarihlerini tek ekrandan yönetin</p>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full sm:w-auto bg-red-600/10 text-red-400 border border-red-500/20 hover:bg-red-600/20 text-xs font-semibold px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Güvenli Çıkış
+          </button>
+        </div>
+
         {/* Dashboard Bileşeni */}
         <AnalyticsDashboard projects={projects} isPro={false} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* 3. YENİ ÖZELLİK: Mobil uyumlu duyarlı grid yapısı */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
           
           {/* Proje Tanımlama / Düzenleme Formu */}
-          <div className="bg-[#111827] border border-gray-800 rounded-xl p-6 shadow-xl h-fit">
-            <h2 className="text-xl font-bold mb-1">
+          <div className="bg-[#111827] border border-gray-800 rounded-xl p-5 md:p-6 shadow-xl h-fit">
+            <h2 className="text-lg md:text-xl font-bold mb-1">
               {editingProjectId ? 'Proje Bilgilerini Güncelle' : 'Yeni Proje Tanımla'}
             </h2>
             <p className="text-xs text-gray-400 mb-6">
@@ -194,18 +229,18 @@ export default function Home() {
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-gray-100"
                   placeholder="e.g. E-Ticaret Arayüz Yenileme"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-400 mb-1">Müşteri / Şirket *</label>
+                <label className="block text-xs font-semibold text-gray-400 mb-1">Müşteri / Şiriket *</label>
                 <input
                   type="text"
                   value={client}
                   onChange={(e) => setClient(e.target.value)}
-                  className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-gray-100"
                   placeholder="e.g. Acme Corp"
                 />
               </div>
@@ -217,7 +252,7 @@ export default function Home() {
                     type="number"
                     value={budget}
                     onChange={(e) => setBudget(e.target.value)}
-                    className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-gray-100"
                     placeholder="30000"
                   />
                 </div>
@@ -227,7 +262,7 @@ export default function Home() {
                     type="number"
                     value={expenses}
                     onChange={(e) => setExpenses(e.target.value)}
-                    className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-gray-100"
                     placeholder="5000"
                   />
                 </div>
@@ -239,7 +274,7 @@ export default function Home() {
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-gray-100"
                   >
                     <option value="Aktif">Aktif</option>
                     <option value="Tamamlandı">Tamamlandı</option>
@@ -252,7 +287,7 @@ export default function Home() {
                     value={deadline}
                     min={todayStr}
                     onChange={(e) => setDeadline(e.target.value)}
-                    className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#1F2937] border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-gray-100"
                   />
                 </div>
               </div>
@@ -280,26 +315,45 @@ export default function Home() {
           </div>
 
           {/* Proje Listesi Kolonu */}
-          <div className="bg-[#111827] border border-gray-800 rounded-xl p-6 shadow-xl lg:col-span-2">
-            <div className="flex justify-between items-center mb-6">
+          <div className="bg-[#111827] border border-gray-800 rounded-xl p-5 md:p-6 shadow-xl lg:col-span-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
               <div>
-                <h2 className="text-xl font-bold mb-1">Tüm Projeler</h2>
+                <h2 className="text-lg md:text-xl font-bold mb-1">Tüm Projeler</h2>
                 <p className="text-xs text-gray-400">Yalnızca sizin tarafınızdan eklenen kayıtlar listelenir.</p>
               </div>
-              <span className="bg-[#1F2937] text-xs font-semibold px-2.5 py-1 rounded-md border border-gray-700">
-                Toplam Proje: {projects.length}
+              <span className="bg-[#1F2937] text-xs font-semibold px-2.5 py-1 rounded-md border border-gray-700 self-start sm:self-center">
+                Gösterilen: {filteredProjects.length} / {projects.length}
               </span>
+            </div>
+
+            {/* Filtreleme Sekmeleri Buton Grubu */}
+            <div className="flex bg-[#1F2937]/60 p-1 rounded-lg border border-gray-800 mb-6 max-w-xs">
+              {(['Tümü', 'Aktif', 'Tamamlandı'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setFilter(tab)}
+                  className={`flex-1 text-center py-1.5 text-xs font-medium rounded-md transition-all ${
+                    filter === tab
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
 
             {loading ? (
               <p className="text-sm text-gray-400 text-center py-8">Yükleniyor...</p>
-            ) : projects.length === 0 ? (
+            ) : filteredProjects.length === 0 ? (
               <div className="border border-dashed border-gray-800 rounded-xl p-12 text-center text-sm text-gray-500">
-                Henüz hiçbir proje eklemediniz.
+                Bu kategoride listelenecek proje bulunamadı.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+              /* Mobil Uyumlu: Taşmaları Önleyen Yatay Kaydırılabilir Tablo Alanı */
+              <div className="overflow-x-auto w-full -mx-5 px-5 sm:mx-0 sm:px-0">
+                <table className="w-full text-left border-collapse min-w-[650px]">
                   <thead>
                     <tr className="border-b border-gray-800 text-xs font-semibold text-gray-400 tracking-wider">
                       <th className="pb-3">PROJE & MÜŞTERİ</th>
@@ -310,17 +364,17 @@ export default function Home() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800 text-sm">
-                    {projects.map((project) => (
+                    {filteredProjects.map((project) => (
                       <tr key={project.id} className="hover:bg-[#111827]/50 transition-colors">
-                        <td className="py-4">
-                          <div className="font-semibold text-gray-200">{project.title}</div>
-                          <div className="text-xs text-gray-500">{project.client}</div>
+                        <td className="py-4 pr-2">
+                          <div className="font-semibold text-gray-200 max-w-[180px] break-words">{project.title}</div>
+                          <div className="text-xs text-gray-500 max-w-[180px] break-words">{project.client}</div>
                         </td>
-                        <td className="py-4">
-                          <div className="font-semibold text-green-400">{Number(project.budget).toLocaleString('tr-TR')}₺ bütçe</div>
-                          <div className="text-xs text-gray-500">-{Number(project.expenses).toLocaleString('tr-TR')}₺ masraf</div>
+                        <td className="py-4 pr-2">
+                          <div className="font-semibold text-green-400 whitespace-nowrap">{Number(project.budget).toLocaleString('tr-TR')}₺ bütçe</div>
+                          <div className="text-xs text-gray-500 whitespace-nowrap">-{Number(project.expenses).toLocaleString('tr-TR')}₺ masraf</div>
                         </td>
-                        <td className="py-4">
+                        <td className="py-4 pr-2">
                           <button
                             onClick={() => toggleProjectStatus(project.id, project.status)}
                             title="Durumu değiştirmek için tıklayın"
@@ -333,10 +387,10 @@ export default function Home() {
                             {project.status}
                           </button>
                         </td>
-                        <td className="py-4 text-gray-400 text-xs font-mono">
+                        <td className="py-4 text-gray-400 text-xs font-mono whitespace-nowrap">
                           {project.deadline ? new Date(project.deadline).toLocaleDateString('tr-TR') : '-'}
                         </td>
-                        <td className="py-4 text-right space-x-2">
+                        <td className="py-4 text-right space-x-2 whitespace-nowrap">
                           {/* Düzenleme Butonu */}
                           <button
                             onClick={() => handleEditClick(project)}
