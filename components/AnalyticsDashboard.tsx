@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-// TypeScript Arayüzü (Hata vermemesi için)
+// TypeScript Arayüzleri
 interface Transaction {
   id: string;
   title: string;
@@ -13,13 +13,19 @@ interface Transaction {
   created_at: string;
 }
 
-// Supabase Standart Bağlantısı (Asla Çökmez)
+// index.tsx'ten gelen projeleri ve üyelik durumunu TypeScript'e tanıtıyoruz
+interface AnalyticsDashboardProps {
+  projects?: any[];
+  isPro?: boolean;
+}
+
+// Supabase Standart Bağlantısı
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 );
 
-export default function Dashboard() {
+export default function Dashboard({ projects, isPro }: AnalyticsDashboardProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [formData, setFormData] = useState({ title: "", amount: "", type: "gelir" });
@@ -78,7 +84,7 @@ export default function Dashboard() {
     }
   };
 
-  // PDF Çıktısı Alma (Tarayıcının yazdır özelliğini kullanarak temiz PDF üretir)
+  // PDF Çıktısı Alma
   const handlePrintPDF = () => {
     window.print();
   };
@@ -105,7 +111,6 @@ export default function Dashboard() {
       {/* Üst Kısım ve PDF Butonu */}
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-gray-800">Finans Dashboard</h1>
-        {/* print:hidden sınıfı sayesinde bu buton PDF'te görünmez */}
         <button
           onClick={handlePrintPDF}
           className="print:hidden bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded shadow transition-all"
