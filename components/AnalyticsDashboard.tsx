@@ -1,14 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
-// Kendi supabase dosyanın yolunu buraya yaz (örnek: import { supabase } from '@/lib/supabase')
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"; 
+import React, { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
+// TypeScript Arayüzü (Hata vermemesi için)
+interface Transaction {
+  id: string;
+  title: string;
+  amount: number;
+  type: "gelir" | "gider";
+  created_at: string;
+}
+
+// Supabase Standart Bağlantısı (Asla Çökmez)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+);
+
 export default function Dashboard() {
-  const supabase = createClientComponentClient();
-  const [transactions, setTransactions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [formData, setFormData] = useState({ title: "", amount: "", type: "gelir" });
 
   // Verileri Supabase'den Çekme (Read)
@@ -19,8 +32,11 @@ export default function Dashboard() {
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (error) console.error("Veri çekme hatası:", error);
-    else setTransactions(data || []);
+    if (error) {
+      console.error("Veri çekme hatası:", error);
+    } else {
+      setTransactions((data as Transaction[]) || []);
+    }
     setLoading(false);
   };
 
@@ -29,9 +45,12 @@ export default function Dashboard() {
   }, []);
 
   // Yeni Kayıt Ekleme (Create)
-  const handleAddTransaction = async (e) => {
+  const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title || !formData.amount) return alert("Lütfen tüm alanları doldur!");
+    if (!formData.title || !formData.amount) {
+      alert("Lütfen tüm alanları doldur!");
+      return;
+    }
 
     const { error } = await supabase.from("transactions").insert([
       {
@@ -50,10 +69,13 @@ export default function Dashboard() {
   };
 
   // Kayıt Silme (Delete)
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
     const { error } = await supabase.from("transactions").delete().eq("id", id);
-    if (error) console.error("Silme hatası:", error);
-    else fetchTransactions(); // Listeyi yenile
+    if (error) {
+      console.error("Silme hatası:", error);
+    } else {
+      fetchTransactions(); // Listeyi yenile
+    }
   };
 
   // PDF Çıktısı Alma (Tarayıcının yazdır özelliğini kullanarak temiz PDF üretir)
@@ -62,8 +84,14 @@ export default function Dashboard() {
   };
 
   // Hesaplamalar
-  const totalIncome = transactions.filter((t) => t.type === "gelir").reduce((acc, curr) => acc + curr.amount, 0);
-  const totalExpense = transactions.filter((t) => t.type === "gider").reduce((acc, curr) => acc + curr.amount, 0);
+  const totalIncome = transactions
+    .filter((t) => t.type === "gelir")
+    .reduce((acc, curr) => acc + curr.amount, 0);
+
+  const totalExpense = transactions
+    .filter((t) => t.type === "gider")
+    .reduce((acc, curr) => acc + curr.amount, 0);
+
   const netBalance = totalIncome - totalExpense;
 
   // Grafik Verisi Hazırlığı
@@ -182,11 +210,11 @@ export default function Dashboard() {
           <tbody className="bg-white divide-y divide-gray-200">
             {loading ? (
               <tr>
-                <td colSpan="5" className="px-6 py-4 text-center text-gray-500">Yükleniyor...</td>
+                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">Yükleniyor...</td>
               </tr>
             ) : transactions.length === 0 ? (
               <tr>
-                <td colSpan="5" className="px-6 py-4 text-center text-gray-500">Henüz kayıt bulunmuyor.</td>
+                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">Henüz kayıt bulunmuyor.</td>
               </tr>
             ) : (
               transactions.map((t) => (
