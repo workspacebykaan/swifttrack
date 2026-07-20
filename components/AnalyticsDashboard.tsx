@@ -6,6 +6,13 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useRouter } from "next/router";
 
 // TypeScript Arayüzleri
+interface Project {
+  id: string | number;
+  name?: string;
+  title?: string;
+  customer?: string;
+}
+
 interface Transaction {
   id: string;
   title: string;
@@ -16,7 +23,7 @@ interface Transaction {
 }
 
 interface AnalyticsDashboardProps {
-  projects?: any[];
+  projects?: Project[];
   isPro?: boolean;
 }
 
@@ -26,21 +33,20 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 );
 
-export default function Dashboard({ projects, isPro }: AnalyticsDashboardProps) {
+export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardProps) {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [formData, setFormData] = useState({ title: "", amount: "", type: "gelir" });
 
-  // 🛡️ AUTH GUARD: Oturum Kontrolü ve Sayfa Koruması
+  // 🛡️ AUTH GUARD: Oturum Kontrolü
   useEffect(() => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session || !session.user) {
-        // Giriş yapmamışsa kullanıcıyı login sayfasına yönlendir
-        // (Eğer login sayfanın yolu farklıysa "/login" yazan yeri değiştirebilirsin)
         router.push("/login");
       } else {
         setUser(session.user);
@@ -51,7 +57,7 @@ export default function Dashboard({ projects, isPro }: AnalyticsDashboardProps) 
     checkUser();
   }, []);
 
-  // 📥 Verileri Çekme (Sadece giriş yapan kullanıcının verileri gelir)
+  // 📥 Verileri Çekme
   const fetchTransactions = async (userId: string) => {
     setLoading(true);
     const { data, error } = await supabase
@@ -68,7 +74,7 @@ export default function Dashboard({ projects, isPro }: AnalyticsDashboardProps) 
     setLoading(false);
   };
 
-  // ➕ Yeni Kayıt Ekleme (Kullanıcı ID'si ile ilişkilendirilir)
+  // ➕ Yeni Kayıt Ekleme (Proje Bağlantısı İle)
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return alert("Oturum bulunamadı!");
@@ -77,12 +83,22 @@ export default function Dashboard({ projects, isPro }: AnalyticsDashboardProps) 
       return;
     }
 
+    // Seçilen proje varsa başlığa otomatik ekleme yapıyoruz
+    let finalTitle = formData.title;
+    if (selectedProjectId) {
+      const selectedProj = projects.find((p) => String(p.id) === String(selectedProjectId));
+      const projName = selectedProj?.title || selectedProj?.name;
+      if (projName && !finalTitle.includes(`[${projName}]`)) {
+        finalTitle = `[${projName}] ${finalTitle}`;
+      }
+    }
+
     const { error } = await supabase.from("transactions").insert([
       {
-        title: formData.title,
+        title: finalTitle,
         amount: parseFloat(formData.amount),
         type: formData.type,
-        user_id: user.id, // Kaydı oluşturan kullanıcının ID'si ekleniyor
+        user_id: user.id,
       },
     ]);
 
@@ -90,7 +106,8 @@ export default function Dashboard({ projects, isPro }: AnalyticsDashboardProps) 
       console.error("Ekleme hatası:", error);
     } else {
       setFormData({ title: "", amount: "", type: "gelir" });
-      fetchTransactions(user.id); // Listeyi yenile
+      setSelectedProjectId("");
+      fetchTransactions(user.id);
     }
   };
 
@@ -106,15 +123,14 @@ export default function Dashboard({ projects, isPro }: AnalyticsDashboardProps) 
     if (error) {
       console.error("Silme hatası:", error);
     } else {
-      fetchTransactions(user.id); // Listeyi yenile
+      fetchTransactions(user.id);
     }
   };
 
-  // 📑 PDF Çıktısı Alma & Sayaç Kaydetme
+  // 📑 PDF Çıktısı Alma & Sayaç Kaydı
   const handlePrintPDF = async () => {
     if (!user) return;
 
-    // Rapor indirildiğinde veritabanına kullanım kaydı yazıyoruz
     const { error } = await supabase.from("feature_usage").insert([
       {
         feature_name: "pdf_download",
@@ -126,7 +142,6 @@ export default function Dashboard({ projects, isPro }: AnalyticsDashboardProps) 
       console.error("Özellik kullanım kaydı eklenemedi:", error);
     }
 
-    // Tarayıcı yazdırma ekranını aç
     window.print();
   };
 
@@ -141,108 +156,142 @@ export default function Dashboard({ projects, isPro }: AnalyticsDashboardProps) 
 
   const netBalance = totalIncome - totalExpense;
 
-  // Grafik Verisi Hazırlığı
+  // Grafik Verisi
   const chartData = [
     { name: "Gelir", Toplam: totalIncome },
     { name: "Gider", Toplam: totalExpense },
   ];
 
-  // Oturum kontrol edilirken boş sayfa gösterip göz kırpmasını engelliyoruz
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-[#0B0F19] text-white">
         <div className="text-center">
-          <p className="text-gray-600 font-semibold text-lg">Yükleniyor...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-400 font-medium">Yükleniyor...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="bg-[#0B0F19] text-white p-6 md:p-8 rounded-2xl border border-gray-800 shadow-2xl mb-8">
       {/* Üst Kısım ve PDF Butonu */}
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Finans Dashboard</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Finansal Yönetim Paneli</h1>
+          <p className="text-sm text-gray-400 mt-1">Gelir, gider ve proje finansallarınızı anlık olarak takip edin.</p>
+        </div>
         <button
           onClick={handlePrintPDF}
-          className="print:hidden bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded shadow transition-all"
+          className="print:hidden bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm py-2.5 px-5 rounded-xl shadow-lg shadow-emerald-900/20 transition-all duration-200 flex items-center gap-2"
         >
-          Raporu İndir (PDF)
+          <span>📄</span> Raporu İndir (PDF)
         </button>
       </div>
 
       {/* Özet Kartları */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow border-l-4 border-green-500">
-          <h3 className="text-gray-500 text-sm font-medium">Toplam Gelir</h3>
-          <p className="text-2xl font-bold text-green-600">₺{totalIncome.toLocaleString()}</p>
+        <div className="bg-[#111827] p-6 rounded-xl border border-emerald-500/30 shadow-lg">
+          <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Toplam Gelir</h3>
+          <p className="text-3xl font-extrabold text-emerald-400">₺{totalIncome.toLocaleString()}</p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow border-l-4 border-red-500">
-          <h3 className="text-gray-500 text-sm font-medium">Toplam Gider</h3>
-          <p className="text-2xl font-bold text-red-600">₺{totalExpense.toLocaleString()}</p>
+        <div className="bg-[#111827] p-6 rounded-xl border border-rose-500/30 shadow-lg">
+          <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Toplam Gider</h3>
+          <p className="text-3xl font-extrabold text-rose-400">₺{totalExpense.toLocaleString()}</p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500">
-          <h3 className="text-gray-500 text-sm font-medium">Net Bakiye</h3>
-          <p className="text-2xl font-bold text-blue-600">₺{netBalance.toLocaleString()}</p>
+        <div className="bg-[#111827] p-6 rounded-xl border border-blue-500/30 shadow-lg">
+          <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Net Bakiye</h3>
+          <p className="text-3xl font-extrabold text-blue-400">₺{netBalance.toLocaleString()}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {/* Yeni Kayıt Ekleme Formu */}
-        <div className="bg-white p-6 rounded-lg shadow print:hidden">
-          <h2 className="text-xl font-semibold mb-4 text-gray-700">Yeni İşlem Ekle</h2>
+        <div className="bg-[#111827] p-6 rounded-xl border border-gray-800 shadow-xl print:hidden">
+          <h2 className="text-lg font-semibold mb-4 text-gray-200 flex items-center gap-2">
+            <span>➕</span> Yeni Finansal İşlem Ekle
+          </h2>
           <form onSubmit={handleAddTransaction} className="space-y-4">
+            {/* Proje Seçimi (Eğer proje varsa) */}
+            {projects.length > 0 && (
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">İlişkili Proje (Opsiyonel)</label>
+                <select
+                  value={selectedProjectId}
+                  onChange={(e) => setSelectedProjectId(e.target.value)}
+                  className="w-full bg-[#1F2937] border border-gray-700 rounded-lg p-2.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">Proje Seçilmedi (Genel İşlem)</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title || p.name} {p.customer ? `(${p.customer})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div>
-              <label className="block text-sm font-medium text-gray-700">Başlık/Açıklama</label>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Başlık / Açıklama *</label>
               <input
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
-                placeholder="Örn: Logo Tasarım İşi"
+                className="w-full bg-[#1F2937] border border-gray-700 rounded-lg p-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                placeholder="Örn: Web Sitem Tasarım Ücreti"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Tutar (₺)</label>
-              <input
-                type="number"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
-                placeholder="0.00"
-              />
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">Tutar (₺) *</label>
+                <input
+                  type="number"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  className="w-full bg-[#1F2937] border border-gray-700 rounded-lg p-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">İşlem Tipi *</label>
+                <select
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  className="w-full bg-[#1F2937] border border-gray-700 rounded-lg p-2.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="gelir">Gelir (+)</option>
+                  <option value="gider">Gider (-)</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">İşlem Tipi</label>
-              <select
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border"
-              >
-                <option value="gelir">Gelir</option>
-                <option value="gider">Gider</option>
-              </select>
-            </div>
+
             <button
               type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded transition-all"
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 shadow-lg shadow-blue-900/30"
             >
-              Kaydet
+              Kaydet ve İşle
             </button>
           </form>
         </div>
 
         {/* Grafik Alanı */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4 text-gray-700">Gelir & Gider Analizi</h2>
-          <div className="h-64">
+        <div className="bg-[#111827] p-6 rounded-xl border border-gray-800 shadow-xl flex flex-col justify-between">
+          <h2 className="text-lg font-semibold mb-4 text-gray-200 flex items-center gap-2">
+            <span>📊</span> Gelir & Gider Dağılımı
+          </h2>
+          <div className="h-60 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="Toplam" fill="#4F46E5" radius={[4, 4, 0, 0]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="name" stroke="#9CA3AF" />
+                <YAxis stroke="#9CA3AF" />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "#1F2937", borderColor: "#374151", color: "#FFF", borderRadius: "8px" }}
+                  itemStyle={{ color: "#60A5FA" }}
+                />
+                <Bar dataKey="Toplam" fill="#3B82F6" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -250,54 +299,69 @@ export default function Dashboard({ projects, isPro }: AnalyticsDashboardProps) 
       </div>
 
       {/* Kayıt Listesi Tablosu */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-700">Son İşlemler (Fatura Özeti)</h2>
+      <div className="bg-[#111827] rounded-xl border border-gray-800 overflow-hidden shadow-xl">
+        <div className="p-5 border-b border-gray-800">
+          <h2 className="text-lg font-semibold text-gray-200">Son İşlemler (Fatura / Kayıt Özeti)</h2>
         </div>
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Açıklama</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tutar</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tip</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider print:hidden">İşlem</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {loading ? (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-800 text-left">
+            <thead className="bg-[#1F2937]/50 text-gray-400 text-xs uppercase font-semibold">
               <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">Yükleniyor...</td>
+                <th className="px-6 py-3.5">Açıklama / Proje</th>
+                <th className="px-6 py-3.5">Tarih</th>
+                <th className="px-6 py-3.5">Tutar</th>
+                <th className="px-6 py-3.5">Tip</th>
+                <th className="px-6 py-3.5 print:hidden">İşlem</th>
               </tr>
-            ) : transactions.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">Henüz kayıt bulunmuyor.</td>
-              </tr>
-            ) : (
-              transactions.map((t) => (
-                <tr key={t.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{t.title}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(t.created_at).toLocaleDateString("tr-TR")}
-                  </td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${t.type === "gelir" ? "text-green-600" : "text-red-600"}`}>
-                    {t.type === "gelir" ? "+" : "-"}₺{t.amount.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${t.type === "gelir" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                      {t.type.toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 print:hidden">
-                    <button onClick={() => handleDelete(t.id)} className="text-red-600 hover:text-red-900 font-medium">
-                      Sil
-                    </button>
+            </thead>
+            <tbody className="divide-y divide-gray-800 text-sm text-gray-300">
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-6 text-center text-gray-500">
+                    Veriler yükleniyor...
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : transactions.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-6 text-center text-gray-500">
+                    Henüz finansal kayıt bulunmuyor.
+                  </td>
+                </tr>
+              ) : (
+                transactions.map((t) => (
+                  <tr key={t.id} className="hover:bg-[#1F2937]/30 transition-colors">
+                    <td className="px-6 py-4 font-medium text-white">{t.title}</td>
+                    <td className="px-6 py-4 text-gray-400">
+                      {new Date(t.created_at).toLocaleDateString("tr-TR")}
+                    </td>
+                    <td className={`px-6 py-4 font-bold ${t.type === "gelir" ? "text-emerald-400" : "text-rose-400"}`}>
+                      {t.type === "gelir" ? "+" : "-"}₺{t.amount.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${
+                          t.type === "gelir"
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                            : "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                        }`}
+                      >
+                        {t.type.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 print:hidden">
+                      <button
+                        onClick={() => handleDelete(t.id)}
+                        className="text-rose-400 hover:text-rose-300 font-medium text-xs bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg border border-rose-500/20 transition-all"
+                      >
+                        Sil
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
