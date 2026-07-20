@@ -512,8 +512,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* GRAFİK BÖLÜMÜ */}
-        <AnalyticsDashboard projects={projects} isPro={false} />
+        {/* GRAFİK BÖLÜMÜ (Dil parametresi eklendi!) */}
+        <AnalyticsDashboard projects={projects} isPro={false} lang={lang} />
 
         {/* PROJE EKLEME VE LİSTELEME */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
@@ -604,10 +604,16 @@ export default function Home() {
                             {project.status === 'Tamamlandı' ? t.completed : t.active}
                           </button>
                         </td>
-                        <td className="py-4 text-gray-400 text-xs font-mono whitespace-nowrap">{project.deadline ? new Date(project.deadline).toLocaleDateString(lang === 'en' ? 'en-US' : 'tr-TR') : '-'}</td>
-                        <td className="py-4 text-right space-x-2 whitespace-nowrap">
-                          <button onClick={() => handleEditClick(project)} className="text-xs bg-yellow-600/10 text-yellow-400 border border-yellow-500/20 hover:bg-yellow-500/20 px-2.5 py-1 rounded transition-colors">{t.editBtn}</button>
-                          <button onClick={() => handleDeleteProject(project.id)} className="text-xs bg-red-600/10 text-red-400 border border-red-500/20 hover:bg-red-600/20 px-2.5 py-1 rounded transition-colors">{t.deleteBtn}</button>
+                        <td className="py-4 text-xs text-gray-400 pr-2 whitespace-nowrap">
+                          {project.deadline ? new Date(project.deadline).toLocaleDateString(lang === 'en' ? 'en-US' : 'tr-TR') : '-'}
+                        </td>
+                        <td className="py-4 text-right whitespace-nowrap space-x-2">
+                          <button onClick={() => handleEditClick(project)} className="text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-md text-xs font-medium transition-colors border border-blue-500/20">
+                            {t.editBtn}
+                          </button>
+                          <button onClick={() => handleDeleteProject(project.id)} className="text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-md text-xs font-medium transition-colors border border-red-500/20">
+                            {t.deleteBtn}
+                          </button>
                         </td>
                       </tr>
                     ))}
