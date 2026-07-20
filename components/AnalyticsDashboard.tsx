@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useRouter } from "next/router";
 
 // TypeScript Arayüzleri
 interface Transaction {
@@ -11,9 +12,9 @@ interface Transaction {
   amount: number;
   type: "gelir" | "gider";
   created_at: string;
+  user_id: string;
 }
 
-// index.tsx'ten gelen projeleri ve üyelik durumunu TypeScript'e tanıtıyoruz
 interface AnalyticsDashboardProps {
   projects?: any[];
   isPro?: boolean;
@@ -26,16 +27,37 @@ const supabase = createClient(
 );
 
 export default function Dashboard({ projects, isPro }: AnalyticsDashboardProps) {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [formData, setFormData] = useState({ title: "", amount: "", type: "gelir" });
 
-  // Verileri Supabase'den Çekme (Read)
-  const fetchTransactions = async () => {
+  // 🛡️ AUTH GUARD: Oturum Kontrolü ve Sayfa Koruması
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session || !session.user) {
+        // Giriş yapmamışsa kullanıcıyı login sayfasına yönlendir
+        // (Eğer login sayfanın yolu farklıysa "/login" yazan yeri değiştirebilirsin)
+        router.push("/login");
+      } else {
+        setUser(session.user);
+        fetchTransactions(session.user.id);
+      }
+    };
+
+    checkUser();
+  }, []);
+
+  // 📥 Verileri Çekme (Sadece giriş yapan kullanıcının verileri gelir)
+  const fetchTransactions = async (userId: string) => {
     setLoading(true);
     const { data, error } = await supabase
       .from("transactions")
       .select("*")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -46,13 +68,10 @@ export default function Dashboard({ projects, isPro }: AnalyticsDashboardProps) 
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchTransactions();
-  }, []);
-
-  // Yeni Kayıt Ekleme (Create)
+  // ➕ Yeni Kayıt Ekleme (Kullanıcı ID'si ile ilişkilendirilir)
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return alert("Oturum bulunamadı!");
     if (!formData.title || !formData.amount) {
       alert("Lütfen tüm alanları doldur!");
       return;
@@ -63,6 +82,7 @@ export default function Dashboard({ projects, isPro }: AnalyticsDashboardProps) 
         title: formData.title,
         amount: parseFloat(formData.amount),
         type: formData.type,
+        user_id: user.id, // Kaydı oluşturan kullanıcının ID'si ekleniyor
       },
     ]);
 
@@ -70,22 +90,43 @@ export default function Dashboard({ projects, isPro }: AnalyticsDashboardProps) 
       console.error("Ekleme hatası:", error);
     } else {
       setFormData({ title: "", amount: "", type: "gelir" });
-      fetchTransactions(); // Listeyi yenile
+      fetchTransactions(user.id); // Listeyi yenile
     }
   };
 
-  // Kayıt Silme (Delete)
+  // ❌ Kayıt Silme
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("transactions").delete().eq("id", id);
+    if (!user) return;
+    const { error } = await supabase
+      .from("transactions")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id);
+
     if (error) {
       console.error("Silme hatası:", error);
     } else {
-      fetchTransactions(); // Listeyi yenile
+      fetchTransactions(user.id); // Listeyi yenile
     }
   };
 
-  // PDF Çıktısı Alma
-  const handlePrintPDF = () => {
+  // 📑 PDF Çıktısı Alma & Sayaç Kaydetme
+  const handlePrintPDF = async () => {
+    if (!user) return;
+
+    // Rapor indirildiğinde veritabanına kullanım kaydı yazıyoruz
+    const { error } = await supabase.from("feature_usage").insert([
+      {
+        feature_name: "pdf_download",
+        user_id: user.id,
+      },
+    ]);
+
+    if (error) {
+      console.error("Özellik kullanım kaydı eklenemedi:", error);
+    }
+
+    // Tarayıcı yazdırma ekranını aç
     window.print();
   };
 
@@ -105,6 +146,17 @@ export default function Dashboard({ projects, isPro }: AnalyticsDashboardProps) 
     { name: "Gelir", Toplam: totalIncome },
     { name: "Gider", Toplam: totalExpense },
   ];
+
+  // Oturum kontrol edilirken boş sayfa gösterip göz kırpmasını engelliyoruz
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <p className="text-gray-600 font-semibold text-lg">Yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
