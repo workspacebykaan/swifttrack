@@ -74,7 +74,7 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
     setLoading(false);
   };
 
-  // ➕ Yeni Kayıt Ekleme (Proje Bağlantısı İle)
+  // ➕ Yeni Kayıt Ekleme
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return alert("Oturum bulunamadı!");
@@ -83,7 +83,6 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
       return;
     }
 
-    // Seçilen proje varsa başlığa otomatik ekleme yapıyoruz
     let finalTitle = formData.title;
     if (selectedProjectId) {
       const selectedProj = projects.find((p) => String(p.id) === String(selectedProjectId));
@@ -164,26 +163,37 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0B0F19] text-white">
+      <div 
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: "#0B0F19", color: "#FFFFFF" }}
+      >
         <div className="text-center">
           <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-400 font-medium">Yükleniyor...</p>
+          <p style={{ color: "#9CA3AF" }} className="font-medium">Yükleniyor...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-[#0B0F19] text-white p-6 md:p-8 rounded-2xl border border-gray-800 shadow-2xl mb-8">
+    <div 
+      className="p-6 md:p-8 rounded-2xl border shadow-2xl mb-8"
+      style={{ backgroundColor: "#0B0F19", borderColor: "#1F2937", color: "#F9FAFB" }}
+    >
       {/* Üst Kısım ve PDF Butonu */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Finansal Yönetim Paneli</h1>
-          <p className="text-sm text-gray-400 mt-1">Gelir, gider ve proje finansallarınızı anlık olarak takip edin.</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight" style={{ color: "#FFFFFF" }}>
+            Finansal Yönetim Paneli
+          </h1>
+          <p className="text-sm mt-1" style={{ color: "#9CA3AF" }}>
+            Gelir, gider ve proje finansallarınızı anlık olarak takip edin.
+          </p>
         </div>
         <button
           onClick={handlePrintPDF}
-          className="print:hidden bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm py-2.5 px-5 rounded-xl shadow-lg shadow-emerald-900/20 transition-all duration-200 flex items-center gap-2"
+          className="print:hidden font-medium text-sm py-2.5 px-5 rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2 cursor-pointer"
+          style={{ backgroundColor: "#10B981", color: "#FFFFFF" }}
         >
           <span>📄</span> Raporu İndir (PDF)
         </button>
@@ -191,35 +201,48 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
 
       {/* Özet Kartları */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-[#111827] p-6 rounded-xl border border-emerald-500/30 shadow-lg">
-          <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Toplam Gelir</h3>
-          <p className="text-3xl font-extrabold text-emerald-400">₺{totalIncome.toLocaleString()}</p>
+        <div 
+          className="p-6 rounded-xl border shadow-lg"
+          style={{ backgroundColor: "#111827", borderColor: "rgba(16, 185, 129, 0.3)" }}
+        >
+          <h3 className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "#9CA3AF" }}>Toplam Gelir</h3>
+          <p className="text-3xl font-extrabold" style={{ color: "#34D399" }}>₺{totalIncome.toLocaleString()}</p>
         </div>
-        <div className="bg-[#111827] p-6 rounded-xl border border-rose-500/30 shadow-lg">
-          <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Toplam Gider</h3>
-          <p className="text-3xl font-extrabold text-rose-400">₺{totalExpense.toLocaleString()}</p>
+        <div 
+          className="p-6 rounded-xl border shadow-lg"
+          style={{ backgroundColor: "#111827", borderColor: "rgba(244, 63, 94, 0.3)" }}
+        >
+          <h3 className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "#9CA3AF" }}>Toplam Gider</h3>
+          <p className="text-3xl font-extrabold" style={{ color: "#F87171" }}>₺{totalExpense.toLocaleString()}</p>
         </div>
-        <div className="bg-[#111827] p-6 rounded-xl border border-blue-500/30 shadow-lg">
-          <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-1">Net Bakiye</h3>
-          <p className="text-3xl font-extrabold text-blue-400">₺{netBalance.toLocaleString()}</p>
+        <div 
+          className="p-6 rounded-xl border shadow-lg"
+          style={{ backgroundColor: "#111827", borderColor: "rgba(59, 130, 246, 0.3)" }}
+        >
+          <h3 className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "#9CA3AF" }}>Net Bakiye</h3>
+          <p className="text-3xl font-extrabold" style={{ color: "#60A5FA" }}>₺{netBalance.toLocaleString()}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {/* Yeni Kayıt Ekleme Formu */}
-        <div className="bg-[#111827] p-6 rounded-xl border border-gray-800 shadow-xl print:hidden">
-          <h2 className="text-lg font-semibold mb-4 text-gray-200 flex items-center gap-2">
+        <div 
+          className="p-6 rounded-xl border shadow-xl print:hidden"
+          style={{ backgroundColor: "#111827", borderColor: "#1F2937" }}
+        >
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: "#E5E7EB" }}>
             <span>➕</span> Yeni Finansal İşlem Ekle
           </h2>
           <form onSubmit={handleAddTransaction} className="space-y-4">
-            {/* Proje Seçimi (Eğer proje varsa) */}
+            {/* Proje Seçimi */}
             {projects.length > 0 && (
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">İlişkili Proje (Opsiyonel)</label>
+                <label className="block text-xs font-medium mb-1" style={{ color: "#9CA3AF" }}>İlişkili Proje (Opsiyonel)</label>
                 <select
                   value={selectedProjectId}
                   onChange={(e) => setSelectedProjectId(e.target.value)}
-                  className="w-full bg-[#1F2937] border border-gray-700 rounded-lg p-2.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                  className="w-full rounded-lg p-2.5 text-sm focus:outline-none"
+                  style={{ backgroundColor: "#1F2937", borderColor: "#374151", color: "#F3F4F6", border: "1px solid #374151" }}
                 >
                   <option value="">Proje Seçilmedi (Genel İşlem)</option>
                   {projects.map((p) => (
@@ -232,34 +255,37 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
             )}
 
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">Başlık / Açıklama *</label>
+              <label className="block text-xs font-medium mb-1" style={{ color: "#9CA3AF" }}>Başlık / Açıklama *</label>
               <input
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full bg-[#1F2937] border border-gray-700 rounded-lg p-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                className="w-full rounded-lg p-2.5 text-sm focus:outline-none"
+                style={{ backgroundColor: "#1F2937", color: "#F3F4F6", border: "1px solid #374151" }}
                 placeholder="Örn: Web Sitem Tasarım Ücreti"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">Tutar (₺) *</label>
+                <label className="block text-xs font-medium mb-1" style={{ color: "#9CA3AF" }}>Tutar (₺) *</label>
                 <input
                   type="number"
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  className="w-full bg-[#1F2937] border border-gray-700 rounded-lg p-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  className="w-full rounded-lg p-2.5 text-sm focus:outline-none"
+                  style={{ backgroundColor: "#1F2937", color: "#F3F4F6", border: "1px solid #374151" }}
                   placeholder="0.00"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-400 mb-1">İşlem Tipi *</label>
+                <label className="block text-xs font-medium mb-1" style={{ color: "#9CA3AF" }}>İşlem Tipi *</label>
                 <select
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  className="w-full bg-[#1F2937] border border-gray-700 rounded-lg p-2.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                  className="w-full rounded-lg p-2.5 text-sm focus:outline-none"
+                  style={{ backgroundColor: "#1F2937", color: "#F3F4F6", border: "1px solid #374151" }}
                 >
                   <option value="gelir">Gelir (+)</option>
                   <option value="gider">Gider (-)</option>
@@ -269,7 +295,8 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
 
             <button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 shadow-lg shadow-blue-900/30"
+              className="w-full font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 shadow-lg cursor-pointer"
+              style={{ backgroundColor: "#2563EB", color: "#FFFFFF" }}
             >
               Kaydet ve İşle
             </button>
@@ -277,8 +304,11 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
         </div>
 
         {/* Grafik Alanı */}
-        <div className="bg-[#111827] p-6 rounded-xl border border-gray-800 shadow-xl flex flex-col justify-between">
-          <h2 className="text-lg font-semibold mb-4 text-gray-200 flex items-center gap-2">
+        <div 
+          className="p-6 rounded-xl border shadow-xl flex flex-col justify-between"
+          style={{ backgroundColor: "#111827", borderColor: "#1F2937" }}
+        >
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: "#E5E7EB" }}>
             <span>📊</span> Gelir & Gider Dağılımı
           </h2>
           <div className="h-60 w-full">
@@ -288,7 +318,7 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
                 <XAxis dataKey="name" stroke="#9CA3AF" />
                 <YAxis stroke="#9CA3AF" />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#1F2937", borderColor: "#374151", color: "#FFF", borderRadius: "8px" }}
+                  contentStyle={{ backgroundColor: "#1F2937", borderColor: "#374151", color: "#F9FAFB", borderRadius: "8px" }}
                   itemStyle={{ color: "#60A5FA" }}
                 />
                 <Bar dataKey="Toplam" fill="#3B82F6" radius={[6, 6, 0, 0]} />
@@ -299,13 +329,16 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
       </div>
 
       {/* Kayıt Listesi Tablosu */}
-      <div className="bg-[#111827] rounded-xl border border-gray-800 overflow-hidden shadow-xl">
-        <div className="p-5 border-b border-gray-800">
-          <h2 className="text-lg font-semibold text-gray-200">Son İşlemler (Fatura / Kayıt Özeti)</h2>
+      <div 
+        className="rounded-xl border overflow-hidden shadow-xl"
+        style={{ backgroundColor: "#111827", borderColor: "#1F2937" }}
+      >
+        <div className="p-5 border-b" style={{ borderColor: "#1F2937" }}>
+          <h2 className="text-lg font-semibold" style={{ color: "#E5E7EB" }}>Son İşlemler (Fatura / Kayıt Özeti)</h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-800 text-left">
-            <thead className="bg-[#1F2937]/50 text-gray-400 text-xs uppercase font-semibold">
+          <table className="min-w-full text-left border-collapse">
+            <thead style={{ backgroundColor: "#1F2937", color: "#9CA3AF" }} className="text-xs uppercase font-semibold">
               <tr>
                 <th className="px-6 py-3.5">Açıklama / Proje</th>
                 <th className="px-6 py-3.5">Tarih</th>
@@ -314,36 +347,37 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
                 <th className="px-6 py-3.5 print:hidden">İşlem</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800 text-sm text-gray-300">
+            <tbody className="text-sm" style={{ color: "#D1D5DB" }}>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-6 text-center text-gray-500">
+                  <td colSpan={5} className="px-6 py-6 text-center" style={{ color: "#6B7280" }}>
                     Veriler yükleniyor...
                   </td>
                 </tr>
               ) : transactions.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-6 text-center text-gray-500">
+                  <td colSpan={5} className="px-6 py-6 text-center" style={{ color: "#6B7280" }}>
                     Henüz finansal kayıt bulunmuyor.
                   </td>
                 </tr>
               ) : (
                 transactions.map((t) => (
-                  <tr key={t.id} className="hover:bg-[#1F2937]/30 transition-colors">
-                    <td className="px-6 py-4 font-medium text-white">{t.title}</td>
-                    <td className="px-6 py-4 text-gray-400">
+                  <tr key={t.id} style={{ borderBottom: "1px solid #1F2937" }}>
+                    <td className="px-6 py-4 font-medium" style={{ color: "#FFFFFF" }}>{t.title}</td>
+                    <td className="px-6 py-4" style={{ color: "#9CA3AF" }}>
                       {new Date(t.created_at).toLocaleDateString("tr-TR")}
                     </td>
-                    <td className={`px-6 py-4 font-bold ${t.type === "gelir" ? "text-emerald-400" : "text-rose-400"}`}>
+                    <td className="px-6 py-4 font-bold" style={{ color: t.type === "gelir" ? "#34D399" : "#F87171" }}>
                       {t.type === "gelir" ? "+" : "-"}₺{t.amount.toLocaleString()}
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${
-                          t.type === "gelir"
-                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                            : "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                        }`}
+                        className="px-2.5 py-1 text-xs font-semibold rounded-full"
+                        style={{
+                          backgroundColor: t.type === "gelir" ? "rgba(16, 185, 129, 0.15)" : "rgba(244, 63, 94, 0.15)",
+                          color: t.type === "gelir" ? "#34D399" : "#F87171",
+                          border: `1px solid ${t.type === "gelir" ? "rgba(16, 185, 129, 0.3)" : "rgba(244, 63, 94, 0.3)"}`
+                        }}
                       >
                         {t.type.toUpperCase()}
                       </span>
@@ -351,7 +385,12 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
                     <td className="px-6 py-4 print:hidden">
                       <button
                         onClick={() => handleDelete(t.id)}
-                        className="text-rose-400 hover:text-rose-300 font-medium text-xs bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg border border-rose-500/20 transition-all"
+                        className="font-medium text-xs px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                        style={{
+                          backgroundColor: "rgba(239, 68, 68, 0.15)",
+                          color: "#EF4444",
+                          border: "1px solid rgba(239, 68, 68, 0.3)"
+                        }}
                       >
                         Sil
                       </button>
