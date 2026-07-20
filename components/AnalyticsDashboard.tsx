@@ -26,7 +26,83 @@ interface AnalyticsDashboardProps {
   isPro?: boolean;
 }
 
-// 🛡️ GÜVENLİ SUPABASE BAĞLANTISI (Env yoksa çökmesini engeller)
+// 🌍 DİL SÖZLÜĞÜ (İngilizce ve Türkçe Metinler)
+const dict = {
+  tr: {
+    title: "Finansal Yönetim Paneli",
+    subtitle: "Gelir, gider ve proje finansallarınızı anlık olarak takip edin.",
+    downloadPdf: "Raporu İndir",
+    totalIncome: "Toplam Gelir",
+    totalExpense: "Toplam Gider",
+    netBalance: "Net Bakiye",
+    addTransaction: "Yeni İşlem Ekle",
+    projectLabel: "Proje",
+    generalTransaction: "Genel İşlem",
+    formTitle: "Başlık *",
+    formAmount: "Tutar (₺) *",
+    formType: "Tip *",
+    incomeOpt: "Gelir (+)",
+    expenseOpt: "Gider (-)",
+    saveBtn: "Kaydet",
+    chartTitle: "Gelir & Gider",
+    recentTransactions: "Son İşlemler",
+    thDesc: "Açıklama",
+    thDate: "Tarih",
+    thAmount: "Tutar",
+    thType: "Tip",
+    thAction: "İşlem",
+    loading: "Yükleniyor...",
+    noRecords: "Kayıt bulunmuyor.",
+    deleteBtn: "Sil",
+    envMissingTitle: "⚠️ Ortam Değişkenleri Eksik!",
+    envMissingDesc: "Vercel veya yerel `.env.local` dosyanızda Supabase URL ve KEY eksik. Lütfen ekleyin.",
+    loginTitle: "Finansal Verilerinizi Görmek İçin Giriş Yapın",
+    loginBtn: "Giriş Yap / Kayıt Ol",
+    alertNoSession: "Oturum bulunamadı!",
+    alertEmptyFields: "Lütfen tüm alanları doldur!",
+    chartIncomeLabel: "Gelir",
+    chartExpenseLabel: "Gider",
+    chartTotalLabel: "Toplam"
+  },
+  en: {
+    title: "Financial Management Dashboard",
+    subtitle: "Track your income, expenses, and project financials in real-time.",
+    downloadPdf: "Download Report",
+    totalIncome: "Total Income",
+    totalExpense: "Total Expense",
+    netBalance: "Net Balance",
+    addTransaction: "Add New Transaction",
+    projectLabel: "Project",
+    generalTransaction: "General Transaction",
+    formTitle: "Title *",
+    formAmount: "Amount (₺) *",
+    formType: "Type *",
+    incomeOpt: "Income (+)",
+    expenseOpt: "Expense (-)",
+    saveBtn: "Save",
+    chartTitle: "Income & Expense",
+    recentTransactions: "Recent Transactions",
+    thDesc: "Description",
+    thDate: "Date",
+    thAmount: "Amount",
+    thType: "Type",
+    thAction: "Action",
+    loading: "Loading...",
+    noRecords: "No records found.",
+    deleteBtn: "Delete",
+    envMissingTitle: "⚠️ Environment Variables Missing!",
+    envMissingDesc: "Supabase URL and KEY are missing in Vercel or your `.env.local` file. Please add them.",
+    loginTitle: "Log in to View Your Financial Data",
+    loginBtn: "Login / Sign Up",
+    alertNoSession: "Session not found!",
+    alertEmptyFields: "Please fill all fields!",
+    chartIncomeLabel: "Income",
+    chartExpenseLabel: "Expense",
+    chartTotalLabel: "Total"
+  }
+};
+
+// 🛡️ GÜVENLİ SUPABASE BAĞLANTISI
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
@@ -39,6 +115,10 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
   const [formData, setFormData] = useState({ title: "", amount: "", type: "gelir" });
   const [envError, setEnvError] = useState<boolean>(false);
   const [authChecked, setAuthChecked] = useState<boolean>(false);
+  
+  // Dil state'i (Varsayılan Türkçe)
+  const [lang, setLang] = useState<"tr" | "en">("tr");
+  const t = dict[lang]; // Çeviri kısayolu
 
   // 🛡️ AUTH GUARD & ENV KONTROLÜ
   useEffect(() => {
@@ -92,8 +172,8 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
   // ➕ Yeni Kayıt Ekleme
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase || !user) return alert("Oturum bulunamadı!");
-    if (!formData.title || !formData.amount) return alert("Lütfen tüm alanları doldur!");
+    if (!supabase || !user) return alert(t.alertNoSession);
+    if (!formData.title || !formData.amount) return alert(t.alertEmptyFields);
 
     let finalTitle = formData.title;
     if (selectedProjectId) {
@@ -108,7 +188,7 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
       {
         title: finalTitle,
         amount: parseFloat(formData.amount),
-        type: formData.type,
+        type: formData.type, // Veritabanına her zaman 'gelir' veya 'gider' yazılır
         user_id: user.id,
       },
     ]);
@@ -143,8 +223,8 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
   if (envError) {
     return (
       <div className="p-8 rounded-2xl border border-rose-500/30 bg-[#111827] text-center mb-8 shadow-xl">
-        <h2 className="text-xl font-bold text-rose-400 mb-2">⚠️ Ortam Değişkenleri Eksik!</h2>
-        <p className="text-gray-400">Vercel veya yerel `.env.local` dosyanızda Supabase URL ve KEY eksik. Lütfen ekleyin.</p>
+        <h2 className="text-xl font-bold text-rose-400 mb-2">{t.envMissingTitle}</h2>
+        <p className="text-gray-400">{t.envMissingDesc}</p>
       </div>
     );
   }
@@ -158,13 +238,13 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
     );
   }
 
-  // GİRİŞ YAPILMAMIŞ EKRANI (Router çökmesini önlemek için a tag kullanıldı)
+  // GİRİŞ YAPILMAMIŞ EKRANI
   if (!user) {
     return (
       <div className="p-8 rounded-2xl border border-[#1F2937] bg-[#111827] text-center mb-8 shadow-xl">
-        <h2 className="text-xl font-bold text-gray-200 mb-4">Finansal Verilerinizi Görmek İçin Giriş Yapın</h2>
+        <h2 className="text-xl font-bold text-gray-200 mb-4">{t.loginTitle}</h2>
         <a href="/login" className="inline-block bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-6 rounded-xl transition-all shadow-lg">
-          Giriş Yap / Kayıt Ol
+          {t.loginBtn}
         </a>
       </div>
     );
@@ -174,36 +254,48 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
   const totalIncome = transactions.filter((t) => t.type === "gelir").reduce((acc, curr) => acc + curr.amount, 0);
   const totalExpense = transactions.filter((t) => t.type === "gider").reduce((acc, curr) => acc + curr.amount, 0);
   const netBalance = totalIncome - totalExpense;
+  
+  // Grafik için dinamik veri
   const chartData = [
-    { name: "Gelir", Toplam: totalIncome },
-    { name: "Gider", Toplam: totalExpense },
+    { name: t.chartIncomeLabel, [t.chartTotalLabel]: totalIncome },
+    { name: t.chartExpenseLabel, [t.chartTotalLabel]: totalExpense },
   ];
 
   return (
     <div className="p-6 md:p-8 rounded-2xl border shadow-2xl mb-8" style={{ backgroundColor: "#0B0F19", borderColor: "#1F2937", color: "#F9FAFB" }}>
-      {/* Üst Kısım */}
+      {/* Üst Kısım & Butonlar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Finansal Yönetim Paneli</h1>
-          <p className="text-sm mt-1 text-gray-400">Gelir, gider ve proje finansallarınızı anlık olarak takip edin.</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">{t.title}</h1>
+          <p className="text-sm mt-1 text-gray-400">{t.subtitle}</p>
         </div>
-        <button onClick={handlePrintPDF} className="print:hidden font-medium text-sm py-2.5 px-5 rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2 cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white">
-          <span>📄</span> Raporu İndir
-        </button>
+        <div className="print:hidden flex items-center gap-3">
+          {/* Dil Değiştirici Buton */}
+          <button 
+            onClick={() => setLang(lang === "tr" ? "en" : "tr")}
+            className="flex items-center gap-2 bg-[#1F2937] hover:bg-[#374151] border border-gray-700 text-gray-200 font-medium text-sm py-2 px-4 rounded-xl transition-all shadow-md"
+          >
+            {lang === "tr" ? "🇹🇷 TR" : "🇬🇧 EN"}
+          </button>
+          {/* PDF İndir Butonu */}
+          <button onClick={handlePrintPDF} className="font-medium text-sm py-2.5 px-5 rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2 cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white">
+            <span>📄</span> {t.downloadPdf}
+          </button>
+        </div>
       </div>
 
       {/* Özet Kartları */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="p-6 rounded-xl border shadow-lg bg-[#111827] border-emerald-500/30">
-          <h3 className="text-xs font-semibold uppercase tracking-wider mb-1 text-gray-400">Toplam Gelir</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wider mb-1 text-gray-400">{t.totalIncome}</h3>
           <p className="text-3xl font-extrabold text-emerald-400">₺{totalIncome.toLocaleString()}</p>
         </div>
         <div className="p-6 rounded-xl border shadow-lg bg-[#111827] border-rose-500/30">
-          <h3 className="text-xs font-semibold uppercase tracking-wider mb-1 text-gray-400">Toplam Gider</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wider mb-1 text-gray-400">{t.totalExpense}</h3>
           <p className="text-3xl font-extrabold text-rose-400">₺{totalExpense.toLocaleString()}</p>
         </div>
         <div className="p-6 rounded-xl border shadow-lg bg-[#111827] border-blue-500/30">
-          <h3 className="text-xs font-semibold uppercase tracking-wider mb-1 text-gray-400">Net Bakiye</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wider mb-1 text-gray-400">{t.netBalance}</h3>
           <p className="text-3xl font-extrabold text-blue-400">₺{netBalance.toLocaleString()}</p>
         </div>
       </div>
@@ -211,41 +303,41 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {/* Form */}
         <div className="p-6 rounded-xl border shadow-xl print:hidden bg-[#111827] border-gray-800">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-200"><span>➕</span> Yeni İşlem Ekle</h2>
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-200"><span>➕</span> {t.addTransaction}</h2>
           <form onSubmit={handleAddTransaction} className="space-y-4">
             {projects.length > 0 && (
               <div>
-                <label className="block text-xs font-medium mb-1 text-gray-400">Proje</label>
+                <label className="block text-xs font-medium mb-1 text-gray-400">{t.projectLabel}</label>
                 <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="w-full rounded-lg p-2.5 text-sm focus:outline-none bg-[#1F2937] border-gray-700 text-white">
-                  <option value="">Genel İşlem</option>
+                  <option value="">{t.generalTransaction}</option>
                   {projects.map((p) => <option key={p.id} value={p.id}>{p.title || p.name}</option>)}
                 </select>
               </div>
             )}
             <div>
-              <label className="block text-xs font-medium mb-1 text-gray-400">Başlık *</label>
+              <label className="block text-xs font-medium mb-1 text-gray-400">{t.formTitle}</label>
               <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="w-full rounded-lg p-2.5 text-sm focus:outline-none bg-[#1F2937] border-gray-700 text-white" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium mb-1 text-gray-400">Tutar (₺) *</label>
+                <label className="block text-xs font-medium mb-1 text-gray-400">{t.formAmount}</label>
                 <input type="number" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} className="w-full rounded-lg p-2.5 text-sm focus:outline-none bg-[#1F2937] border-gray-700 text-white" />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1 text-gray-400">Tip *</label>
+                <label className="block text-xs font-medium mb-1 text-gray-400">{t.formType}</label>
                 <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full rounded-lg p-2.5 text-sm focus:outline-none bg-[#1F2937] border-gray-700 text-white">
-                  <option value="gelir">Gelir (+)</option>
-                  <option value="gider">Gider (-)</option>
+                  <option value="gelir">{t.incomeOpt}</option>
+                  <option value="gider">{t.expenseOpt}</option>
                 </select>
               </div>
             </div>
-            <button type="submit" className="w-full font-semibold py-2.5 px-4 rounded-xl transition-all shadow-lg bg-blue-600 hover:bg-blue-500 text-white">Kaydet</button>
+            <button type="submit" className="w-full font-semibold py-2.5 px-4 rounded-xl transition-all shadow-lg bg-blue-600 hover:bg-blue-500 text-white">{t.saveBtn}</button>
           </form>
         </div>
 
         {/* Grafik */}
         <div className="p-6 rounded-xl border shadow-xl flex flex-col justify-between bg-[#111827] border-gray-800">
-          <h2 className="text-lg font-semibold mb-4 text-gray-200">📊 Gelir & Gider</h2>
+          <h2 className="text-lg font-semibold mb-4 text-gray-200">📊 {t.chartTitle}</h2>
           <div className="h-60 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
@@ -253,7 +345,7 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
                 <XAxis dataKey="name" stroke="#9CA3AF" />
                 <YAxis stroke="#9CA3AF" />
                 <Tooltip contentStyle={{ backgroundColor: "#1F2937", borderColor: "#374151", color: "#F9FAFB" }} itemStyle={{ color: "#60A5FA" }} />
-                <Bar dataKey="Toplam" fill="#3B82F6" radius={[6, 6, 0, 0]} />
+                <Bar dataKey={t.chartTotalLabel} fill="#3B82F6" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -262,34 +354,40 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
 
       {/* Tablo */}
       <div className="rounded-xl border overflow-hidden shadow-xl bg-[#111827] border-gray-800">
-        <div className="p-5 border-b border-gray-800"><h2 className="text-lg font-semibold text-gray-200">Son İşlemler</h2></div>
+        <div className="p-5 border-b border-gray-800"><h2 className="text-lg font-semibold text-gray-200">{t.recentTransactions}</h2></div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-left border-collapse">
             <thead className="bg-[#1F2937] text-gray-400 text-xs uppercase font-semibold">
               <tr>
-                <th className="px-6 py-3.5">Açıklama</th><th className="px-6 py-3.5">Tarih</th><th className="px-6 py-3.5">Tutar</th><th className="px-6 py-3.5">Tip</th><th className="px-6 py-3.5">İşlem</th>
+                <th className="px-6 py-3.5">{t.thDesc}</th>
+                <th className="px-6 py-3.5">{t.thDate}</th>
+                <th className="px-6 py-3.5">{t.thAmount}</th>
+                <th className="px-6 py-3.5">{t.thType}</th>
+                <th className="px-6 py-3.5 print:hidden">{t.thAction}</th>
               </tr>
             </thead>
             <tbody className="text-sm text-gray-300">
               {loading ? (
-                <tr><td colSpan={5} className="px-6 py-6 text-center text-gray-500">Yükleniyor...</td></tr>
+                <tr><td colSpan={5} className="px-6 py-6 text-center text-gray-500">{t.loading}</td></tr>
               ) : transactions.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-6 text-center text-gray-500">Kayıt bulunmuyor.</td></tr>
+                <tr><td colSpan={5} className="px-6 py-6 text-center text-gray-500">{t.noRecords}</td></tr>
               ) : (
-                transactions.map((t) => (
-                  <tr key={t.id} className="border-b border-gray-800">
-                    <td className="px-6 py-4 font-medium text-white">{t.title}</td>
-                    <td className="px-6 py-4 text-gray-400">{new Date(t.created_at).toLocaleDateString("tr-TR")}</td>
-                    <td className={`px-6 py-4 font-bold ${t.type === "gelir" ? "text-emerald-400" : "text-rose-400"}`}>
-                      {t.type === "gelir" ? "+" : "-"}₺{t.amount.toLocaleString()}
+                transactions.map((tItem) => (
+                  <tr key={tItem.id} className="border-b border-gray-800">
+                    <td className="px-6 py-4 font-medium text-white">{tItem.title}</td>
+                    <td className="px-6 py-4 text-gray-400">{new Date(tItem.created_at).toLocaleDateString(lang === "en" ? "en-US" : "tr-TR")}</td>
+                    <td className={`px-6 py-4 font-bold ${tItem.type === "gelir" ? "text-emerald-400" : "text-rose-400"}`}>
+                      {tItem.type === "gelir" ? "+" : "-"}₺{tItem.amount.toLocaleString()}
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${t.type === "gelir" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-rose-500/10 text-rose-400 border-rose-500/30"}`}>
-                        {t.type.toUpperCase()}
+                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${tItem.type === "gelir" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-rose-500/10 text-rose-400 border-rose-500/30"}`}>
+                        {lang === "en" 
+                          ? (tItem.type === "gelir" ? "INCOME" : "EXPENSE") 
+                          : tItem.type.toUpperCase()}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <button onClick={() => handleDelete(t.id)} className="text-rose-400 text-xs px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 hover:bg-rose-500/20">Sil</button>
+                    <td className="px-6 py-4 print:hidden">
+                      <button onClick={() => handleDelete(tItem.id)} className="text-rose-400 text-xs px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 hover:bg-rose-500/20">{t.deleteBtn}</button>
                     </td>
                   </tr>
                 ))
