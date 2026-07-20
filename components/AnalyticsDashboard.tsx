@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { useRouter } from "next/router";
+// HATA BURADAYDI, DÜZELTİLDİ: App Router için next/navigation kullanılmalı!
+import { useRouter } from "next/navigation"; 
 
 // TypeScript Arayüzleri
 interface Project {
@@ -47,6 +48,8 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session || !session.user) {
+        // Eğer "/login" sayfan yoksa burası seni olmayan bir sayfaya atabilir, 
+        // ama en azından beyaz ekranda kalmaz.
         router.push("/login");
       } else {
         setUser(session.user);
@@ -55,7 +58,7 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
     };
 
     checkUser();
-  }, []);
+  }, [router]);
 
   // 📥 Verileri Çekme
   const fetchTransactions = async (userId: string) => {
@@ -169,7 +172,7 @@ export default function Dashboard({ projects = [], isPro }: AnalyticsDashboardPr
       >
         <div className="text-center">
           <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p style={{ color: "#9CA3AF" }} className="font-medium">Yükleniyor...</p>
+          <p style={{ color: "#9CA3AF" }} className="font-medium">Oturum kontrol ediliyor...</p>
         </div>
       </div>
     );
